@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>آزمون آنلاین</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1 id="quiz-title">آزمون آنلاین</h1>
+
+    <!-- صفحه شروع آزمون -->
+    <form id="start-form">
+      <div id="start-screen">
+        <label for="user-name">نام خود را وارد کنید:</label><br>
+        <input type="text" id="user-name" name="name" placeholder="مثال: جواد" required />
+        <br><br>
+
+        <label for="quiz-select">انتخاب آزمون:</label>
+        <select id="quiz-select" name="quizId" required>
+          <option value="default">آزمون نمونه</option>
+        </select>
+        <br><br>
+
+        <button id="start-btn" type="submit">شروع آزمون</button>
+      </div>
+    </form>
+
+    <!-- تایمر -->
+    <div id="timer" class="timer hidden">زمان باقی‌مانده: 00:00</div>
+
+    <!-- فرم سوالات -->
+    <form id="quiz-form" class="hidden">
+      <div id="questions-container"></div>
+      <button id="submit-btn" type="submit">پایان آزمون</button>
+    </form>
+
+    <!-- نمایش نتیجه -->
+    <div id="result" class="hidden"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

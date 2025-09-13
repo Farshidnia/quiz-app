@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8">
+  <title>مدیریت آزمون‌ها</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      direction: rtl;
+      text-align: right;
+      padding: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background: #f5f5f5;
+    }
+    #login-section {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>مدیریت آزمون‌ها</h1>
+
+  <div id="login-section">
+    <input type="password" id="admin-password" placeholder="رمز ورود">
+    <button id="login-btn">ورود</button>
+  </div>
+
+  <div id="results-section" style="display:none;">
+    <h2>نتایج آزمون</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>شناسه</th>
+          <th>زمان</th>
+          <th>شناسه آزمون</th>
+          <th>نام</th>
+          <th>امتیاز</th>
+          <th>کل سوالات</th>
+          <th>پاسخ‌ها</th>
+        </tr>
+      </thead>
+      <tbody id="results-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const loginBtn = document.getElementById('login-btn');
+    const adminPassword = document.getElementById('admin-password');
+    const resultsSection = document.getElementById('results-section');
+    const resultsBody = document.getElementById('results-body');
+
+    loginBtn.addEventListener('click', async () => {
+      const password = adminPassword.value.trim();
+      if (!password) {
+        alert('رمز را وارد کنید');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/results', {
+          headers: { 'x-admin-secret': password }
+        });
+
+        if (!res.ok) {
+          alert('رمز نادرست یا خطای سرور');
+          return;
+        }
+
+        const results = await res.json();
+        resultsSection.style.display = 'block';
+        renderResults(results);
+      } catch (error) {
+        console.error('Error fetching results:', error);
+        alert('خطا در دریافت نتایج');
+      }
+    });
+
+    function renderResults(data) {
+      resultsBody.innerHTML = '';
+      data.forEach(r => {
+        resultsBody.innerHTML += `
+          <tr>
+            <td>${r.id}</td>
+            <td>${r.time}</td>
+            <td>${r.quizId}</td>
+            <td>${r.name}</td>
+            <td>${r.score}</td>
+            <td>${r.total}</td>
+            <td><pre>${JSON.stringify(r.answers, null, 2)}</pre></td>
+          </tr>
+        `;
+      });
+    }
+  </script>
+</body>
+</html>
