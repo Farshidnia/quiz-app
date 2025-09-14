@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const jwt = require('jsonwebtoken');
+const cors = require('cors'); // اضافه شد برای رفع مشکل CORS
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,9 +13,42 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
-// فعال کردن JSON و پوشه public
+/* ---------------------------
+   فعال کردن JSON و پوشه public
+--------------------------- */
 app.use(express.json());
 app.use(express.static(PUBLIC_DIR));
+
+/* ---------------------------
+   تنظیمات CORS
+--------------------------- */
+const allowedOrigins = [
+  "https://quiz-app-client-bwgb.onrender.com", // آدرس فرانت روی Render
+  "http://localhost:5173" // برای تست لوکال
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // اگر درخواست بدون origin بود (مثل Postman)، اجازه بده
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+  })
+);
+
+// اضافه کردن دستی هدر برای اطمینان بیشتر
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "https://quiz-app-client-bwgb.onrender.com");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  next();
+});
 
 /* ---------------------------
    تابع خواندن فایل JSON
@@ -148,16 +182,9 @@ app.get('/api/results', (req, res) => {
   }
 });
 
-
-
-
-
-
-
-
-
-
-// GET /api/results/:id -> بازگرداندن submission + سوالات (برای نمایش جزئیات)
+/* ---------------------------
+   نمایش جزئیات یک نتیجه خاص
+--------------------------- */
 app.get('/api/results/:id', (req, res) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
@@ -178,12 +205,10 @@ app.get('/api/results/:id', (req, res) => {
         return res.status(404).json({ error: 'submission not found' });
       }
 
-      // خواندن فایل آزمون مرتبط تا متن سوالات و پاسخ صحیح را داشته باشیم
+      // خواندن فایل آزمون مرتبط
       const quizPath = path.join(DATA_DIR, `${submission.quizId}.json`);
       const quiz = await readJSON(quizPath, []);
 
-      // پاسخ‌ها ممکنه کلیدشون string باشه یا number — همینجا هیچ دستکاری سنگینی نمیکنیم،
-      // فرانت وظیفه‌ی تطابق id با رشته/عدد رو داره
       res.json({ submission, quiz });
     }).catch(err => {
       console.error('Error reading submissions:', err);
@@ -194,16 +219,6 @@ app.get('/api/results/:id', (req, res) => {
     return res.status(403).json({ error: 'توکن نامعتبر است' });
   }
 });
-
-
-
-
-
-
-
-
-
-
 
 /* ---------------------------
    ساخت آزمون جدید (فقط SUPER_ADMIN)
