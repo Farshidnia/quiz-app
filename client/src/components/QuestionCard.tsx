@@ -1,3 +1,4 @@
+// client/src/components/QuestionCard.tsx
 import { motion } from 'framer-motion';
 
 export type Question = {

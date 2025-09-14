@@ -1,6 +1,6 @@
-// src/pages/AdminPage.tsx
+// client/src/pages/AdminPage.tsx
 import { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
 import Loading from '../components/Loading';
 import moment from 'moment-jalaali';
 import SubmissionModal from '../components/SubmissionModal';
@@ -51,7 +51,7 @@ export default function AdminPage() {
   async function login() {
     setLoggingIn(true);
     try {
-      const res = await axios.post('/api/admin/login', { username, password });
+      const res = await api.post('/api/admin/login', { username, password });
       const t = res.data.token;
       const r = res.data.role ?? null;
       setToken(t);
@@ -80,7 +80,7 @@ export default function AdminPage() {
     if (!t) return;
     setLoading(true);
     try {
-      const res = await axios.get<Submission[]>('/api/results', {
+      const res = await api.get<Submission[]>('/api/results', {
         headers: { Authorization: `Bearer ${t}` },
       });
       setResults(Array.isArray(res.data) ? res.data : []);
@@ -101,7 +101,7 @@ export default function AdminPage() {
   async function handleOpenModal(sub: Submission) {
     setModalLoading(true);
     try {
-      const res = await axios.get(`/api/questions/${encodeURIComponent(sub.quizId)}`);
+      const res = await api.get(`/api/questions/${encodeURIComponent(sub.quizId)}`);
       const data = res.data;
 
       let quiz: Question[] = [];

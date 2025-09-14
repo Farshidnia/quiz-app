@@ -1,6 +1,7 @@
+// client/src/pages/Quiz.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import QuestionCard from '../components/QuestionCard';
 import type { Question } from '../components/QuestionCard';
@@ -29,7 +30,7 @@ export default function Quiz() {
     let mounted = true;
     (async () => {
       try {
-        const { data } = await axios.get<Question[]>(
+        const { data } = await api.get<Question[]>(
           `/api/questions/${encodeURIComponent(quizId)}`
         );
         if (!mounted) return;
@@ -58,7 +59,7 @@ export default function Quiz() {
     setSubmitting(true);
     try {
       const payload = { name, quizId, answers };
-      const { data } = await axios.post('/api/submit', payload);
+      const { data } = await api.post('/api/submit', payload);
       setResult({ score: data.score, total: data.total });
     } catch (err) {
       console.error(err);
