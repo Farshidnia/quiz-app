@@ -4,7 +4,9 @@ const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const jwt = require('jsonwebtoken');
-const cors = require('cors'); // اضافه شد برای رفع مشکل CORS
+const cors = require('cors');
+
+const { Pool } = require('pg'); // برای PostgreSQL
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,6 +14,52 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
+/* ---------------------------
+   اتصال به PostgreSQL در صورت موجود بودن DATABASE_URL
+   اگر DATABASE_URL تنظیم شده باشه: pool ساخته میشه و جدول submissions اتوماتیک ایجاد میشه
+--------------------------- */
+let pool = null;
+async function initPostgres() {
+  if (!process.env.DATABASE_URL) {
+    console.log('⚠️ DATABASE_URL not set — using local JSON files for submissions.');
+    return;
+  }
+
+  try {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      // برای سازگاری با اکثر سرویس‌های managed (مثل Render) از ssl=false در لوکال و
+      // ssl.rejectUnauthorized=false در پروداکشن استفاده می‌کنیم.
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    // تست اتصال
+    await pool.query('SELECT 1');
+
+    // ایجاد جدول submissions در صورت نبودن
+    const createTableSQL = `
+      CREATE TABLE IF NOT EXISTS submissions (
+        id BIGSERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        quiz_id TEXT NOT NULL,
+        score INTEGER NOT NULL,
+        total INTEGER NOT NULL,
+        answers JSONB NOT NULL,
+        time TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `;
+    await pool.query(createTableSQL);
+
+    console.log('✅ Connected to PostgreSQL and ensured submissions table exists.');
+  } catch (err) {
+    console.error('❌ PostgreSQL init error:', err);
+    // اگر اتصال موفق نبود، pool رو null می‌ذاریم و سرور به حالت JSON برمی‌گرده
+    pool = null;
+  }
+}
 
 /* ---------------------------
    فعال کردن JSON و پوشه public
@@ -23,14 +71,15 @@ app.use(express.static(PUBLIC_DIR));
    تنظیمات CORS
 --------------------------- */
 const allowedOrigins = [
-  "https://quiz-app-client-bwgb.onrender.com", // آدرس فرانت روی Render
-  "http://localhost:5173" // برای تست لوکال
+  "https://quiz-app-client-bwgb.onrender.com",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost"
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      // اگر درخواست بدون origin بود (مثل Postman)، اجازه بده
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -42,11 +91,13 @@ app.use(
   })
 );
 
-// اضافه کردن دستی هدر برای اطمینان بیشتر
+// هدرهای اضافی برای جلوگیری از کش و اطمینان بیشتر
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "https://quiz-app-client-bwgb.onrender.com");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  // جلوگیری از کش پاسخ‌ها (آپدیت‌های جدید همیشه بیاد)
+  res.setHeader("Cache-Control", "no-store");
   next();
 });
 
@@ -119,6 +170,8 @@ app.get('/api/questions/:quizId', async (req, res) => {
 
 /* ---------------------------
    ذخیره نتایج آزمون
+   - اگر PostgreSQL متصل باشه: ذخیره در DB
+   - در غیر این صورت: ذخیره در فایل JSON محلی
 --------------------------- */
 app.post('/api/submit', async (req, res) => {
   const { name, quizId, answers } = req.body;
@@ -134,33 +187,54 @@ app.post('/api/submit', async (req, res) => {
     if (answers[q.id] === q.correct) score++;
   });
 
-  if (!fsSync.existsSync(DATA_DIR)) {
-    fsSync.mkdirSync(DATA_DIR, { recursive: true });
+  try {
+    if (pool) {
+      // ذخیره در PostgreSQL
+      const insertSQL = `
+        INSERT INTO submissions(name, quiz_id, score, total, answers)
+        VALUES ($1, $2, $3, $4, $5::jsonb)
+        RETURNING id, time;
+      `;
+      const vals = [name, quizId, score, questions.length, JSON.stringify(answers)];
+      const r = await pool.query(insertSQL, vals);
+      const inserted = r.rows[0];
+      // برمی‌گردونیم نتیجه نهایی (قالب قبلی حفظ شده)
+      return res.json({ score, total: questions.length, id: inserted.id, time: inserted.time });
+    } else {
+      // حالت قدیمی: ذخیره لوکال در فایل
+      if (!fsSync.existsSync(DATA_DIR)) {
+        fsSync.mkdirSync(DATA_DIR, { recursive: true });
+      }
+      const subsPath = path.join(DATA_DIR, 'submissions.json');
+      let subs = await readJSON(subsPath, []);
+
+      const record = {
+        id: Date.now(),
+        name,
+        quizId,
+        score,
+        total: questions.length,
+        answers,
+        time: new Date().toISOString()
+      };
+
+      subs.push(record);
+      await fs.writeFile(subsPath, JSON.stringify(subs, null, 2), 'utf8');
+
+      return res.json({ score, total: questions.length, id: record.id, time: record.time });
+    }
+  } catch (err) {
+    console.error('Error saving submission:', err);
+    return res.status(500).json({ error: 'خطا در ذخیره‌سازی نتیجه' });
   }
-
-  const subsPath = path.join(DATA_DIR, 'submissions.json');
-  let subs = await readJSON(subsPath, []);
-
-  const record = {
-    id: Date.now(),
-    name,
-    quizId,
-    score,
-    total: questions.length,
-    answers,
-    time: new Date().toISOString()
-  };
-
-  subs.push(record);
-  await fs.writeFile(subsPath, JSON.stringify(subs, null, 2), 'utf8');
-
-  res.json({ score, total: questions.length });
 });
 
 /* ---------------------------
-   گرفتن نتایج (SUPER_ADMIN و VIEW_ONLY)
+   گرفتن نتایج
+   - PostgreSQL: از جدول بخوان
+   - JSON: از فایل بخوان
 --------------------------- */
-app.get('/api/results', (req, res) => {
+app.get('/api/results', async (req, res) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
 
@@ -172,20 +246,36 @@ app.get('/api/results', (req, res) => {
       return res.status(403).json({ error: 'دسترسی غیرمجاز' });
     }
 
-    const subsPath = path.join(DATA_DIR, 'submissions.json');
-    readJSON(subsPath, []).then(submissions => {
-      res.json(submissions);
-    });
-
+    if (pool) {
+      const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, time FROM submissions ORDER BY time DESC;`;
+      const r = await pool.query(q);
+      const rows = r.rows.map(row => ({
+        id: row.id,
+        name: row.name,
+        quizId: row.quizId,
+        score: row.score,
+        total: row.total,
+        answers: row.answers,
+        time: row.time instanceof Date ? row.time.toISOString() : row.time
+      }));
+      return res.json(rows);
+    } else {
+      const subsPath = path.join(DATA_DIR, 'submissions.json');
+      const submissions = await readJSON(subsPath, []);
+      return res.json(submissions);
+    }
   } catch (err) {
-    return res.status(403).json({ error: 'توکن نامعتبر است' });
+    console.error('Error fetching results:', err);
+    return res.status(403).json({ error: 'توکن نامعتبر یا خطا در سرور' });
   }
 });
 
 /* ---------------------------
    نمایش جزئیات یک نتیجه خاص
+   - PostgreSQL: از جدول بخوان
+   - JSON: از فایل بخوان
 --------------------------- */
-app.get('/api/results/:id', (req, res) => {
+app.get('/api/results/:id', async (req, res) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
 
@@ -196,26 +286,32 @@ app.get('/api/results/:id', (req, res) => {
       return res.status(403).json({ error: 'دسترسی غیرمجاز' });
     }
 
-    const id = Number(req.params.id);
-    const subsPath = path.join(DATA_DIR, 'submissions.json');
+    if (pool) {
+      const idParam = req.params.id;
+      const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, time FROM submissions WHERE id = $1 LIMIT 1;`;
+      const r = await pool.query(q, [idParam]);
+      if (r.rowCount === 0) return res.status(404).json({ error: 'submission not found' });
 
-    readJSON(subsPath, []).then(async (submissions) => {
-      const submission = Array.isArray(submissions) ? submissions.find(s => Number(s.id) === id) : null;
-      if (!submission) {
-        return res.status(404).json({ error: 'submission not found' });
-      }
+      const submission = {
+        ...r.rows[0],
+        time: r.rows[0].time instanceof Date ? r.rows[0].time.toISOString() : r.rows[0].time
+      };
 
-      // خواندن فایل آزمون مرتبط
       const quizPath = path.join(DATA_DIR, `${submission.quizId}.json`);
       const quiz = await readJSON(quizPath, []);
+      return res.json({ submission, quiz });
+    } else {
+      const subsPath = path.join(DATA_DIR, 'submissions.json');
+      const submissions = await readJSON(subsPath, []);
+      const submission = submissions.find(s => String(s.id) === req.params.id);
+      if (!submission) return res.status(404).json({ error: 'submission not found' });
 
-      res.json({ submission, quiz });
-    }).catch(err => {
-      console.error('Error reading submissions:', err);
-      res.status(500).json({ error: 'خطا در سرور' });
-    });
-
+      const quizPath = path.join(DATA_DIR, `${submission.quizId}.json`);
+      const quiz = await readJSON(quizPath, []);
+      return res.json({ submission, quiz });
+    }
   } catch (err) {
+    console.error('Error fetching submission detail:', err);
     return res.status(403).json({ error: 'توکن نامعتبر است' });
   }
 });
@@ -237,7 +333,7 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
 });
 
 /* ---------------------------
-   اطمینان از وجود پوشه data و فایل submissions
+   اطمینان از وجود پوشه data و فایل submissions (برای حالت JSON لوکال)
 --------------------------- */
 async function ensureDataFiles() {
   if (!fsSync.existsSync(DATA_DIR)) {
@@ -250,10 +346,16 @@ async function ensureDataFiles() {
 }
 
 /* ---------------------------
-   شروع سرور
+   شروع سرور: اول Postgres init، بعد listen
 --------------------------- */
-ensureDataFiles().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+ensureDataFiles()
+  .then(() => initPostgres())
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Startup error:', err);
+    process.exit(1);
   });
-});
