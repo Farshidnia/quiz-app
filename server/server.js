@@ -13,11 +13,12 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+app.use('/api/static', express.static(PUBLIC_DIR));
+
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
 /* ---------------------------
    اتصال به PostgreSQL در صورت موجود بودن DATABASE_URL
-   اگر DATABASE_URL تنظیم شده باشه: pool ساخته میشه و جدول submissions اتوماتیک ایجاد میشه
 --------------------------- */
 let pool = null;
 async function initPostgres() {
@@ -29,17 +30,13 @@ async function initPostgres() {
   try {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      // برای سازگاری با اکثر سرویس‌های managed (مثل Render) از ssl=false در لوکال و
-      // ssl.rejectUnauthorized=false در پروداکشن استفاده می‌کنیم.
       ssl: {
         rejectUnauthorized: false,
       },
     });
 
-    // تست اتصال
     await pool.query('SELECT 1');
 
-    // ایجاد جدول submissions در صورت نبودن
     const createTableSQL = `
       CREATE TABLE IF NOT EXISTS submissions (
         id BIGSERIAL PRIMARY KEY,
@@ -56,7 +53,6 @@ async function initPostgres() {
     console.log('✅ Connected to PostgreSQL and ensured submissions table exists.');
   } catch (err) {
     console.error('❌ PostgreSQL init error:', err);
-    // اگر اتصال موفق نبود، pool رو null می‌ذاریم و سرور به حالت JSON برمی‌گرده
     pool = null;
   }
 }
@@ -91,12 +87,10 @@ app.use(
   })
 );
 
-// هدرهای اضافی برای جلوگیری از کش و اطمینان بیشتر
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "https://quiz-app-client-bwgb.onrender.com");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  // جلوگیری از کش پاسخ‌ها (آپدیت‌های جدید همیشه بیاد)
   res.setHeader("Cache-Control", "no-store");
   next();
 });
@@ -170,8 +164,6 @@ app.get('/api/questions/:quizId', async (req, res) => {
 
 /* ---------------------------
    ذخیره نتایج آزمون
-   - اگر PostgreSQL متصل باشه: ذخیره در DB
-   - در غیر این صورت: ذخیره در فایل JSON محلی
 --------------------------- */
 app.post('/api/submit', async (req, res) => {
   const { name, quizId, answers } = req.body;
@@ -189,7 +181,6 @@ app.post('/api/submit', async (req, res) => {
 
   try {
     if (pool) {
-      // ذخیره در PostgreSQL
       const insertSQL = `
         INSERT INTO submissions(name, quiz_id, score, total, answers)
         VALUES ($1, $2, $3, $4, $5::jsonb)
@@ -198,10 +189,8 @@ app.post('/api/submit', async (req, res) => {
       const vals = [name, quizId, score, questions.length, JSON.stringify(answers)];
       const r = await pool.query(insertSQL, vals);
       const inserted = r.rows[0];
-      // برمی‌گردونیم نتیجه نهایی (قالب قبلی حفظ شده)
       return res.json({ score, total: questions.length, id: inserted.id, time: inserted.time });
     } else {
-      // حالت قدیمی: ذخیره لوکال در فایل
       if (!fsSync.existsSync(DATA_DIR)) {
         fsSync.mkdirSync(DATA_DIR, { recursive: true });
       }
@@ -231,8 +220,6 @@ app.post('/api/submit', async (req, res) => {
 
 /* ---------------------------
    گرفتن نتایج
-   - PostgreSQL: از جدول بخوان
-   - JSON: از فایل بخوان
 --------------------------- */
 app.get('/api/results', async (req, res) => {
   const authHeader = req.headers['authorization'];
@@ -272,8 +259,6 @@ app.get('/api/results', async (req, res) => {
 
 /* ---------------------------
    نمایش جزئیات یک نتیجه خاص
-   - PostgreSQL: از جدول بخوان
-   - JSON: از فایل بخوان
 --------------------------- */
 app.get('/api/results/:id', async (req, res) => {
   const authHeader = req.headers['authorization'];
@@ -333,7 +318,36 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
 });
 
 /* ---------------------------
-   اطمینان از وجود پوشه data و فایل submissions (برای حالت JSON لوکال)
+   🔹 API جدید: لیست تمام آزمون‌ها
+--------------------------- */
+app.get('/api/quizzes', async (req, res) => {
+  try {
+    const files = await fs.readdir(DATA_DIR);
+
+    const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'submissions.json');
+
+    const quizzes = [];
+    for (const file of jsonFiles) {
+      const filePath = path.join(DATA_DIR, file);
+      const data = await readJSON(filePath, null);
+
+      if (data) {
+        quizzes.push({
+          id: path.basename(file, '.json'),
+          title: data.title || path.basename(file, '.json')
+        });
+      }
+    }
+
+    res.json(quizzes);
+  } catch (err) {
+    console.error('Error reading quizzes:', err);
+    res.status(500).json({ error: 'خطا در خواندن لیست آزمون‌ها' });
+  }
+});
+
+/* ---------------------------
+   اطمینان از وجود پوشه data
 --------------------------- */
 async function ensureDataFiles() {
   if (!fsSync.existsSync(DATA_DIR)) {
@@ -346,7 +360,7 @@ async function ensureDataFiles() {
 }
 
 /* ---------------------------
-   شروع سرور: اول Postgres init، بعد listen
+   شروع سرور
 --------------------------- */
 ensureDataFiles()
   .then(() => initPostgres())

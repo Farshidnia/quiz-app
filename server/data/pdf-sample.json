@@ -1,0 +1,11 @@
+{
+  "mode": "pdf",
+  "title": "آزمون تصویری نمونه",
+  "pdfUrl": "/api/static/quizzes/pdf-sample.pdf",
+  "count": 10,
+  "questions": [
+    { "id": 1, "correct": "ب" },
+    { "id": 2, "correct": "الف" },
+    { "id": 3, "correct": "د" }
+  ]
+}

@@ -5,13 +5,13 @@ import moment from 'moment-jalaali';
 
 type Question = {
   id: number | string;
-  question: string;
+  question?: string;
   options?: string[];
-  correct?: string;
+  correct?: string | number;
 };
 
 type Submission = {
-  id: number;
+  id: number | string;
   name: string;
   quizId: string;
   score: number;
@@ -106,7 +106,10 @@ export default function SubmissionModal({
           {quiz.map((q, idx) => {
             const qid = String(q.id);
             const studentAnswer = sub.answers[qid];
-            const isCorrect = studentAnswer && String(studentAnswer) === String(q.correct);
+            const correctAnswer = q.correct ?? '-';
+            const isCorrect = studentAnswer && String(studentAnswer) === String(correctAnswer);
+            const options = q.options ?? ['الف', 'ب', 'ج', 'د'];
+            const questionText = q.question ?? `سوال ${idx + 1}`;
 
             return (
               <div key={qid} className="p-4 mb-4 rounded-lg border bg-white shadow-sm">
@@ -118,16 +121,25 @@ export default function SubmissionModal({
                 </div>
 
                 <div className="mb-3 text-gray-800">
-                  {q.question}
+                  {questionText}
                 </div>
 
                 <div className="space-y-2">
-                  <div className="text-sm text-gray-600">پاسخ صحیح:</div>
-                  <div className="px-3 py-2 rounded bg-green-50 text-green-800 text-sm">
-                    {q.correct ?? '-'}
+                  <div className="text-sm text-gray-600">گزینه‌ها:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {options.map((opt, i) => (
+                      <div key={i} className="px-3 py-2 rounded bg-gray-50 text-gray-800 text-sm">
+                        <strong className="ml-2">{opt}</strong>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="text-sm text-gray-600">پاسخ دانش‌آموز:</div>
+                  <div className="mt-2 text-sm text-gray-600">پاسخ صحیح:</div>
+                  <div className="px-3 py-2 rounded bg-green-50 text-green-800 text-sm">
+                    {correctAnswer ?? '-'}
+                  </div>
+
+                  <div className="text-sm text-gray-600 mt-2">پاسخ دانش‌آموز:</div>
                   <div
                     className={`px-3 py-2 rounded text-sm ${
                       !studentAnswer

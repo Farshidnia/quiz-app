@@ -8,6 +8,13 @@ import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 
+type PdfQuizObject = {
+  mode?: 'pdf' | string;
+  pdfUrl?: string;
+  count?: number;
+  questions?: Array<{ id?: number | string; correct?: string }>;
+};
+
 export default function Quiz() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -17,9 +24,11 @@ export default function Quiz() {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, string | null>>({});
+  const [answers, setAnswers] = useState<Record<number | string, string | null>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isPdfMode, setIsPdfMode] = useState(false);
 
   useEffect(() => {
     if (!name) {
@@ -30,11 +39,52 @@ export default function Quiz() {
     let mounted = true;
     (async () => {
       try {
-        const { data } = await api.get<Question[]>(
-          `/api/questions/${encodeURIComponent(quizId)}`
-        );
+        const { data } = await api.get<any>(`/api/questions/${encodeURIComponent(quizId)}`);
+
         if (!mounted) return;
-        setQuestions(Array.isArray(data) ? data : []);
+
+        // حالت قدیمی: اگر سرور آرایه برگرداند
+        if (Array.isArray(data)) {
+          setQuestions(data as Question[]);
+          setIsPdfMode(false);
+          setPdfUrl(null);
+        } else {
+          // حالت PDF: اگر شیء با pdfUrl یا mode: 'pdf' برگشت داده شد
+          const obj = data as PdfQuizObject;
+          if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
+            const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
+            const baseQuestions: Question[] = [];
+            for (let i = 0; i < count; i++) {
+              // برای PDF-mode هر سوال یک placeholder است؛ گزینه‌ها الف/ب/ج/د
+              const qObj = (obj.questions && obj.questions[i]) || {};
+              baseQuestions.push({
+                id: (qObj.id ?? i + 1) as number,
+                // صورت سوال در این حالت فقط "سوال شماره X" نمایش داده می‌شود
+                question: `سوال شماره ${i + 1}`,
+                options: ['الف', 'ب', 'ج', 'د'],
+                // اگر پاسخ صحیح در JSON مشخص شده باشه، ازش استفاده کن
+                // @ts-ignore
+                correct: qObj.correct ?? undefined,
+              } as Question & { correct?: string });
+            }
+            setQuestions(baseQuestions);
+            setIsPdfMode(true);
+            setPdfUrl(obj.pdfUrl ?? null);
+          } else {
+            // اگر شیء غیرمنتظره برگشت، تلاش می‌کنیم آن را به آرایهٔ سوالات تبدیل کنیم
+            if (obj.questions && Array.isArray(obj.questions)) {
+              setQuestions(obj.questions as any as Question[]);
+              setIsPdfMode(false);
+              setPdfUrl(null);
+            } else {
+              // هیچ سوالی
+              setQuestions([]);
+              setIsPdfMode(false);
+              setPdfUrl(null);
+            }
+          }
+        }
+
         setIndex(0);
       } catch (err) {
         console.error(err);
@@ -100,10 +150,30 @@ export default function Quiz() {
     <div className="space-y-4">
       <Timer seconds={totalTime} onExpire={finish} />
 
+      {/* اگر PDF-mode است، دکمه‌ای برای باز کردن PDF نمایش بده */}
+      {isPdfMode && (
+  <div className="flex justify-end">
+    {pdfUrl ? (
+      <a
+        href={pdfUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn-ghost"
+      >
+        نمایش صورت سوال (PDF)
+      </a>
+    ) : (
+      <div className="text-sm text-gray-500">فایلی برای PDF موجود نیست.</div>
+    )}
+  </div>
+)}
+
+
+
       <AnimatePresence>
         {q && (
           <QuestionCard
-            key={q.id}
+            key={String(q.id)}
             q={q}
             selected={answers[q.id] ?? null}
             onSelect={selectAnswer}
