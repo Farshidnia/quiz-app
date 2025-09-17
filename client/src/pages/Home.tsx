@@ -7,22 +7,23 @@ type QuizItem = {
   title: string;
 };
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 export default function Home() {
   const [name, setName] = useState('');
   const [quizId, setQuizId] = useState('default');
-  const [quizzes, setQuizzes] = useState<QuizItem[]>([]); // مقدار اولیه حتماً آرایه باشه
+  const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // گرفتن لیست آزمون‌ها از سرور
   useEffect(() => {
     const fetchQuizzes = async () => {
       try {
-        const res = await fetch('/api/quizzes');
+        const res = await fetch(`${API_BASE}/api/quizzes`);
         const data = await res.json();
-        
-        // بررسی اینکه داده آرایه هست
+
+        console.log('داده دریافتی از سرور:', data); // 🛠️ برای تست
+
         if (Array.isArray(data)) {
           setQuizzes(data);
         } else {
@@ -77,12 +78,15 @@ export default function Home() {
             onChange={e => setQuizId(e.target.value)}
             className="mt-1 w-full border rounded-lg px-3 py-2"
           >
-            {quizzes.length === 0 && <option>هیچ آزمونی موجود نیست</option>}
-            {quizzes.map(q => (
-              <option key={q.id} value={q.id}>
-                {q.title}
-              </option>
-            ))}
+            {quizzes.length > 0 ? (
+              quizzes.map(q => (
+                <option key={q.id} value={q.id}>
+                  {q.title}
+                </option>
+              ))
+            ) : (
+              <option disabled>هیچ آزمونی موجود نیست</option>
+            )}
           </select>
         </label>
 
