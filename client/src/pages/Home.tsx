@@ -2,21 +2,20 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
+type Quiz = { id: string; title: string };
+
 export default function Home() {
   const [name, setName] = useState('');
   const [quizId, setQuizId] = useState('default');
-  const [quizzes, setQuizzes] = useState([]); // مقدار اولیه حتماً آرایه باشه
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // گرفتن لیست آزمون‌ها از سرور
   useEffect(() => {
     const fetchQuizzes = async () => {
       try {
         const res = await fetch('/api/quizzes');
         const data = await res.json();
-        
-        // بررسی اینکه داده آرایه هست
         if (Array.isArray(data)) {
           setQuizzes(data);
         } else {
