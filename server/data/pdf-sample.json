@@ -2,10 +2,27 @@
   "mode": "pdf",
   "title": "آزمون تصویری",
   "pdfUrl": "/quizzes/pdf-sample.pdf",
-  "count": 10,
+  "count": 20,
   "questions": [
-    { "id": 1, "correct": "ب" },
+    { "id": 1, "correct": "الف" },
     { "id": 2, "correct": "الف" },
-    { "id": 3, "correct": "د" }
+    { "id": 3, "correct": "الف" },
+    { "id": 4, "correct": "الف" },
+    { "id": 5, "correct": "الف" },
+    { "id": 6, "correct": "الف" },
+    { "id": 7, "correct": "الف" },
+    { "id": 8, "correct": "الف" },
+    { "id": 9, "correct": "الف" },
+    { "id": 10, "correct": "الف" },
+    { "id": 11, "correct": "الف" },
+    { "id": 12, "correct": "الف" },
+    { "id": 13, "correct": "الف" },
+    { "id": 14, "correct": "الف" },
+    { "id": 15, "correct": "الف" },
+    { "id": 16, "correct": "الف" },
+    { "id": 17, "correct": "الف" },
+    { "id": 18, "correct": "الف" },
+    { "id": 19, "correct": "الف" },
+    { "id": 20, "correct": "الف" }
   ]
 }
