@@ -13,7 +13,9 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
+// سرو فایل‌های استاتیک: هم به روت اصلی و هم مسیر /api/static (برای سازگاری)
 app.use('/api/static', express.static(PUBLIC_DIR));
+app.use(express.static(PUBLIC_DIR));
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
@@ -58,10 +60,9 @@ async function initPostgres() {
 }
 
 /* ---------------------------
-   فعال کردن JSON و پوشه public
+   فعال کردن JSON و هدرهای استاتیک
 --------------------------- */
 app.use(express.json());
-app.use(express.static(PUBLIC_DIR));
 
 /* ---------------------------
    تنظیمات CORS
@@ -88,6 +89,7 @@ app.use(
 );
 
 app.use((req, res, next) => {
+  // فقط هدرهایی که لازم است
   res.setHeader("Access-Control-Allow-Origin", "https://quiz-app-client-bwgb.onrender.com");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -164,45 +166,98 @@ app.get('/api/questions/:quizId', async (req, res) => {
 
 /* ---------------------------
    ذخیره نتایج آزمون
+   - پشتیبانی از: آرایه قدیمی، شیء با questions (PDF-mode)، و ساختن placeholder برای count
+   - مقاوم در برابر خطا (try/catch) و لاگ‌گذاری
 --------------------------- */
 app.post('/api/submit', async (req, res) => {
-  const { name, quizId, answers } = req.body;
-  if (!name || !quizId || !answers) {
-    return res.status(400).json({ error: 'invalid payload' });
-  }
-
-  const filePath = path.join(DATA_DIR, `${quizId}.json`);
-  const questions = await readJSON(filePath, []);
-
-  let score = 0;
-  questions.forEach(q => {
-    if (answers[q.id] === q.correct) score++;
-  });
-
   try {
+    const { name, quizId, answers } = req.body;
+    if (!name || !quizId || !answers) {
+      return res.status(400).json({ error: 'invalid payload' });
+    }
+
+    const filePath = path.join(DATA_DIR, `${quizId}.json`);
+    console.log('[submit] quizId:', quizId, 'filePath:', filePath);
+
+    const quizData = await readJSON(filePath, null);
+    if (!quizData) {
+      console.error('[submit] quiz file not found or invalid JSON:', filePath);
+      return res.status(404).json({ error: 'quiz not found' });
+    }
+
+    // تعیین آرایه سوالات بر اساس ساختارهای ممکن
+    let questions = [];
+
+    if (Array.isArray(quizData)) {
+      // حالت قدیمی: کل فایل یک آرایه سوال است
+      questions = quizData;
+    } else if (quizData.questions && Array.isArray(quizData.questions)) {
+      // حالت جدید: شیء دارای فیلد questions است (ممکن است کوتاه‌تر از count باشد)
+      // در حالت PDF-mode ممکن است فقط id و correct موجود باشد
+      const base = quizData.questions;
+      const count = typeof quizData.count === 'number' ? quizData.count : base.length;
+
+      // اگر base طولش کمتر از count است، placeholder بساز
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        const src = base[i] || {};
+        // هر آیتم خروجی باید حداقل id و (اختیاری) correct داشته باشد
+        out.push({
+          id: src.id ?? (i + 1),
+          question: src.question ?? `سوال شماره ${i + 1}`,
+          options: src.options ?? ['الف', 'ب', 'ج', 'د'],
+          correct: src.correct ?? undefined
+        });
+      }
+      questions = out;
+    } else {
+      console.error('[submit] unsupported quiz format:', typeof quizData, quizData);
+      return res.status(500).json({ error: 'Invalid quiz format' });
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      console.error('[submit] questions array invalid or empty:', questions);
+      return res.status(500).json({ error: 'Invalid quiz questions' });
+    }
+
+    // محاسبه نمره — کلیدهای answers ممکنه رشته باشن/عددی؛ ما با String تطبیق می‌دیم
+    let score = 0;
+    for (const q of questions) {
+      const qid = String(q.id);
+      const correct = q.correct;
+      const userAns = answers[qid] ?? answers[q.id] ?? answers[Number(q.id)];
+      if (typeof correct !== 'undefined' && userAns != null && String(userAns) === String(correct)) {
+        score++;
+      }
+    }
+
+    // ذخیره در PostgreSQL یا فایل محلی
+    const total = questions.length;
+
     if (pool) {
       const insertSQL = `
         INSERT INTO submissions(name, quiz_id, score, total, answers)
         VALUES ($1, $2, $3, $4, $5::jsonb)
         RETURNING id, time;
       `;
-      const vals = [name, quizId, score, questions.length, JSON.stringify(answers)];
+      const vals = [name, quizId, score, total, JSON.stringify(answers)];
       const r = await pool.query(insertSQL, vals);
       const inserted = r.rows[0];
-      return res.json({ score, total: questions.length, id: inserted.id, time: inserted.time });
+      return res.json({ score, total, id: inserted.id, time: inserted.time });
     } else {
       if (!fsSync.existsSync(DATA_DIR)) {
         fsSync.mkdirSync(DATA_DIR, { recursive: true });
       }
       const subsPath = path.join(DATA_DIR, 'submissions.json');
       let subs = await readJSON(subsPath, []);
+      if (!Array.isArray(subs)) subs = [];
 
       const record = {
         id: Date.now(),
         name,
         quizId,
         score,
-        total: questions.length,
+        total,
         answers,
         time: new Date().toISOString()
       };
@@ -210,7 +265,7 @@ app.post('/api/submit', async (req, res) => {
       subs.push(record);
       await fs.writeFile(subsPath, JSON.stringify(subs, null, 2), 'utf8');
 
-      return res.json({ score, total: questions.length, id: record.id, time: record.time });
+      return res.json({ score, total, id: record.id, time: record.time });
     }
   } catch (err) {
     console.error('Error saving submission:', err);
@@ -303,18 +358,43 @@ app.get('/api/results/:id', async (req, res) => {
 
 /* ---------------------------
    ساخت آزمون جدید (فقط SUPER_ADMIN)
+   - الان انعطاف‌پذیر شده: اگر بدی یک شیء شامل title/questions ذخیره می‌کنه،
+     وگرنه اگر آرایه بدی هم همان آرایه را ذخیره می‌کند.
 --------------------------- */
 app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
-  const { quizId, questions } = req.body;
+  const body = req.body;
 
-  if (!quizId || !Array.isArray(questions) || questions.length === 0) {
-    return res.status(400).json({ error: 'اطلاعات آزمون معتبر نیست' });
+  if (!body || !body.quizId) {
+    return res.status(400).json({ error: 'اطلاعات آزمون معتبر نیست (نیاز به quizId)' });
   }
 
+  const quizId = body.quizId;
   const filePath = path.join(DATA_DIR, `${quizId}.json`);
-  await fs.writeFile(filePath, JSON.stringify(questions, null, 2), 'utf8');
 
-  res.json({ success: true, message: 'آزمون با موفقیت ساخته شد' });
+  // اگر بدی یک شیء (با title/questions) همان شیء را ذخیره کن
+  // اگر آرایه بدی، آن آرایه را درون یک شیء با title پیش‌فرض ذخیره کنیم
+  let toWrite = body.content ?? body.questions ?? body; // flexible
+  // If user provided just questions array under body.questions, keep object; otherwise if toWrite is array, we wrap it with a default title
+  if (Array.isArray(toWrite)) {
+    // wrap into object with title if not provided
+    toWrite = {
+      title: body.title || quizId,
+      questions: toWrite
+    };
+  } else if (typeof toWrite === 'object') {
+    // allow it as-is; but ensure title exists
+    if (!toWrite.title) {
+      toWrite.title = body.title || quizId;
+    }
+  }
+
+  try {
+    await fs.writeFile(filePath, JSON.stringify(toWrite, null, 2), 'utf8');
+    res.json({ success: true, message: 'آزمون با موفقیت ساخته شد' });
+  } catch (err) {
+    console.error('Error creating quiz file:', err);
+    res.status(500).json({ error: 'خطا در ذخیره فایل آزمون' });
+  }
 });
 
 /* ---------------------------
