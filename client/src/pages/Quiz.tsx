@@ -15,6 +15,8 @@ type PdfQuizObject = {
   questions?: Array<{ id?: number | string; correct?: string }>;
 };
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 export default function Quiz() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -55,14 +57,11 @@ export default function Quiz() {
             const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
             const baseQuestions: Question[] = [];
             for (let i = 0; i < count; i++) {
-              // برای PDF-mode هر سوال یک placeholder است؛ گزینه‌ها الف/ب/ج/د
               const qObj = (obj.questions && obj.questions[i]) || {};
               baseQuestions.push({
                 id: (qObj.id ?? i + 1) as number,
-                // صورت سوال در این حالت فقط "سوال شماره X" نمایش داده می‌شود
                 question: `سوال شماره ${i + 1}`,
                 options: ['الف', 'ب', 'ج', 'د'],
-                // اگر پاسخ صحیح در JSON مشخص شده باشه، ازش استفاده کن
                 // @ts-ignore
                 correct: qObj.correct ?? undefined,
               } as Question & { correct?: string });
@@ -71,13 +70,11 @@ export default function Quiz() {
             setIsPdfMode(true);
             setPdfUrl(obj.pdfUrl ?? null);
           } else {
-            // اگر شیء غیرمنتظره برگشت، تلاش می‌کنیم آن را به آرایهٔ سوالات تبدیل کنیم
             if (obj.questions && Array.isArray(obj.questions)) {
               setQuestions(obj.questions as any as Question[]);
               setIsPdfMode(false);
               setPdfUrl(null);
             } else {
-              // هیچ سوالی
               setQuestions([]);
               setIsPdfMode(false);
               setPdfUrl(null);
@@ -152,23 +149,21 @@ export default function Quiz() {
 
       {/* اگر PDF-mode است، دکمه‌ای برای باز کردن PDF نمایش بده */}
       {isPdfMode && (
-  <div className="flex justify-end">
-    {pdfUrl ? (
-      <a
-        href={pdfUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn-ghost"
-      >
-        نمایش صورت سوال (PDF)
-      </a>
-    ) : (
-      <div className="text-sm text-gray-500">فایلی برای PDF موجود نیست.</div>
-    )}
-  </div>
-)}
-
-
+        <div className="flex justify-end">
+          {pdfUrl ? (
+            <a
+              href={`${API_BASE}${pdfUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-ghost"
+            >
+              نمایش صورت سوال (PDF)
+            </a>
+          ) : (
+            <div className="text-sm text-gray-500">فایلی برای PDF موجود نیست.</div>
+          )}
+        </div>
+      )}
 
       <AnimatePresence>
         {q && (
