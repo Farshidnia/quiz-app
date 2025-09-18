@@ -1,7 +1,7 @@
 {
   "mode": "pdf",
   "title": "آزمون تصویری",
-  "pdfUrl": "/quizzes/pdf-sample.pdf",
+  "pdfUrl": "/api/static/quizzes/pdf-sample.pdf",
   "count": 20,
   "questions": [
     { "id": 1, "correct": "الف" },
