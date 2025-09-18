@@ -1,3 +1,4 @@
+// جایگزین کامل server.js — only replace your server.js with this content
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -275,6 +276,7 @@ app.post('/api/submit', async (req, res) => {
 
 /* ---------------------------
    گرفتن نتایج
+   - اضافه شدن quizTitle (خواندن از فایل‌های داده)
 --------------------------- */
 app.get('/api/results', async (req, res) => {
   const authHeader = req.headers['authorization'];
@@ -288,6 +290,17 @@ app.get('/api/results', async (req, res) => {
       return res.status(403).json({ error: 'دسترسی غیرمجاز' });
     }
 
+    // build quiz titles map
+    const files = await fs.readdir(DATA_DIR);
+    const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'submissions.json');
+    const quizTitles = {};
+    for (const file of jsonFiles) {
+      const data = await readJSON(path.join(DATA_DIR, file), null);
+      if (data) {
+        quizTitles[path.basename(file, '.json')] = data.title || path.basename(file, '.json');
+      }
+    }
+
     if (pool) {
       const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, time FROM submissions ORDER BY time DESC;`;
       const r = await pool.query(q);
@@ -295,6 +308,7 @@ app.get('/api/results', async (req, res) => {
         id: row.id,
         name: row.name,
         quizId: row.quizId,
+        quizTitle: quizTitles[row.quizId] || row.quizId, // اضافه‌شده
         score: row.score,
         total: row.total,
         answers: row.answers,
@@ -304,7 +318,11 @@ app.get('/api/results', async (req, res) => {
     } else {
       const subsPath = path.join(DATA_DIR, 'submissions.json');
       const submissions = await readJSON(subsPath, []);
-      return res.json(submissions);
+      const mapped = (Array.isArray(submissions) ? submissions : []).map(s => ({
+        ...s,
+        quizTitle: quizTitles[s.quizId] || s.quizId
+      }));
+      return res.json(mapped);
     }
   } catch (err) {
     console.error('Error fetching results:', err);
@@ -314,6 +332,7 @@ app.get('/api/results', async (req, res) => {
 
 /* ---------------------------
    نمایش جزئیات یک نتیجه خاص
+   (همان‌طور که قبلاً بود؛ خروجی شامل submission و quiz)
 --------------------------- */
 app.get('/api/results/:id', async (req, res) => {
   const authHeader = req.headers['authorization'];
@@ -358,8 +377,6 @@ app.get('/api/results/:id', async (req, res) => {
 
 /* ---------------------------
    ساخت آزمون جدید (فقط SUPER_ADMIN)
-   - الان انعطاف‌پذیر شده: اگر بدی یک شیء شامل title/questions ذخیره می‌کنه،
-     وگرنه اگر آرایه بدی هم همان آرایه را ذخیره می‌کند.
 --------------------------- */
 app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
   const body = req.body;
@@ -371,18 +388,13 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
   const quizId = body.quizId;
   const filePath = path.join(DATA_DIR, `${quizId}.json`);
 
-  // اگر بدی یک شیء (با title/questions) همان شیء را ذخیره کن
-  // اگر آرایه بدی، آن آرایه را درون یک شیء با title پیش‌فرض ذخیره کنیم
-  let toWrite = body.content ?? body.questions ?? body; // flexible
-  // If user provided just questions array under body.questions, keep object; otherwise if toWrite is array, we wrap it with a default title
+  let toWrite = body.content ?? body.questions ?? body;
   if (Array.isArray(toWrite)) {
-    // wrap into object with title if not provided
     toWrite = {
       title: body.title || quizId,
       questions: toWrite
     };
   } else if (typeof toWrite === 'object') {
-    // allow it as-is; but ensure title exists
     if (!toWrite.title) {
       toWrite.title = body.title || quizId;
     }
@@ -398,7 +410,7 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
 });
 
 /* ---------------------------
-   🔹 API جدید: لیست تمام آزمون‌ها
+   لیست آزمون‌ها
 --------------------------- */
 app.get('/api/quizzes', async (req, res) => {
   try {

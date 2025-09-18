@@ -10,6 +10,7 @@ import Loading from '../components/Loading';
 
 type PdfQuizObject = {
   mode?: 'pdf' | string;
+  title?: string;
   pdfUrl?: string;
   count?: number;
   questions?: Array<{ id?: number | string; correct?: string }>;
@@ -45,13 +46,13 @@ export default function Quiz() {
 
         if (!mounted) return;
 
-        // حالت قدیمی: اگر سرور آرایه برگرداند
         if (Array.isArray(data)) {
+          // حالت قدیمی
           setQuestions(data as Question[]);
           setIsPdfMode(false);
           setPdfUrl(null);
         } else {
-          // حالت PDF: اگر شیء با pdfUrl یا mode: 'pdf' برگشت داده شد
+          // حالت PDF
           const obj = data as PdfQuizObject;
           if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
             const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
@@ -68,8 +69,9 @@ export default function Quiz() {
             }
             setQuestions(baseQuestions);
             setIsPdfMode(true);
-            setPdfUrl(obj.pdfUrl ?? null);
+            setPdfUrl(`${API_BASE}${obj.pdfUrl ?? ''}`);
           } else {
+            // حالت غیرمنتظره
             if (obj.questions && Array.isArray(obj.questions)) {
               setQuestions(obj.questions as any as Question[]);
               setIsPdfMode(false);
@@ -147,21 +149,16 @@ export default function Quiz() {
     <div className="space-y-4">
       <Timer seconds={totalTime} onExpire={finish} />
 
-      {/* اگر PDF-mode است، دکمه‌ای برای باز کردن PDF نمایش بده */}
-      {isPdfMode && (
+      {isPdfMode && pdfUrl && (
         <div className="flex justify-end">
-          {pdfUrl ? (
-            <a
-              href={`${API_BASE}${pdfUrl}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-ghost"
-            >
-              نمایش صورت سوال (PDF)
-            </a>
-          ) : (
-            <div className="text-sm text-gray-500">فایلی برای PDF موجود نیست.</div>
-          )}
+          <a
+            href={pdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-ghost"
+          >
+            نمایش صورت سوال (PDF)
+          </a>
         </div>
       )}
 

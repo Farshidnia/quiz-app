@@ -34,7 +34,6 @@ export default function SubmissionModal({
   const sub = data.submission;
   const quiz = data.quiz;
 
-  // محاسبه تعداد پاسخ‌های صحیح، غلط و نزده
   const stats = useMemo(() => {
     let correct = 0;
     let wrong = 0;
@@ -67,7 +66,6 @@ export default function SubmissionModal({
         className="relative max-w-4xl w-full bg-white rounded-lg shadow-lg overflow-hidden"
         style={{ maxHeight: '90vh' }}
       >
-        {/* هدر مودال */}
         <div className="p-4 border-b flex items-center justify-between">
           <div>
             <div className="text-lg font-semibold">جزئیات آزمون — {sub.name}</div>
@@ -84,7 +82,6 @@ export default function SubmissionModal({
           </div>
         </div>
 
-        {/* آمار کلی */}
         <div className="p-4 border-b flex justify-around text-center text-sm bg-gray-50">
           <div className="text-green-700 font-semibold">
             صحیح: {stats.correct}
@@ -97,7 +94,6 @@ export default function SubmissionModal({
           </div>
         </div>
 
-        {/* محتوای سوالات */}
         <div className="p-4 overflow-y-auto" style={{ maxHeight: '70vh' }}>
           {quiz.length === 0 && (
             <div className="text-center text-gray-500">سوالی برای نمایش وجود ندارد.</div>
@@ -109,7 +105,6 @@ export default function SubmissionModal({
             const correctAnswer = q.correct ?? '-';
             const isCorrect = studentAnswer && String(studentAnswer) === String(correctAnswer);
             const options = q.options ?? ['الف', 'ب', 'ج', 'د'];
-            const questionText = q.question ?? `سوال ${idx + 1}`;
 
             return (
               <div key={qid} className="p-4 mb-4 rounded-lg border bg-white shadow-sm">
@@ -121,7 +116,7 @@ export default function SubmissionModal({
                 </div>
 
                 <div className="mb-3 text-gray-800">
-                  {questionText}
+                  {q.question && !q.question.startsWith('سوال شماره') ? q.question : null}
                 </div>
 
                 <div className="space-y-2">
