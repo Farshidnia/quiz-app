@@ -11,8 +11,11 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { X } from 'lucide-react';
 
-// ست کردن worker برای pdf.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
+// ✅ ست کردن PDF Worker محلی
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.js',
+  import.meta.url
+).toString();
 
 type PdfQuizObject = {
   mode?: 'pdf' | string;
@@ -73,9 +76,8 @@ export default function Quiz() {
               } as Question & { correct?: string });
             }
 
-            // ✅ فقط اگر pdfUrl وجود داشته باشه، PDF Mode فعال کن
+            // ✅ اگر pdfUrl نسبی بود به آدرس سرور اضافه کن
             if (obj.pdfUrl) {
-              // اگر URL کامل هست از همون استفاده کن، در غیر اینصورت آدرس سرور رو اضافه کن
               const fullPdfUrl = obj.pdfUrl.startsWith('http')
                 ? obj.pdfUrl
                 : `${import.meta.env.VITE_API_BASE_URL || 'https://quiz-app-server-3pa9.onrender.com'}/${obj.pdfUrl.replace(/^\/?/, '')}`;
@@ -229,8 +231,9 @@ export default function Quiz() {
             {/* PDF Scrollable Area */}
             <div className="flex-1 overflow-y-auto p-4">
               <Document
-                file={pdfUrl}
+                file={{ url: pdfUrl }}
                 onLoadSuccess={onDocumentLoadSuccess}
+                crossOrigin="anonymous"
                 loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
               >
                 {Array.from(new Array(numPages ?? 0), (el, idx) => (
