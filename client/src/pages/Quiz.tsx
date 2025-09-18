@@ -40,75 +40,78 @@ export default function Quiz() {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
 
-  
+  useEffect(() => {
+    if (!name) {
+      navigate('/');
+      return;
+    }
 
-useEffect(() => {
-  if (!name) {
-    navigate('/');
-    return;
-  }
+    let mounted = true;
+    (async () => {
+      try {
+        const { data } = await api.get<any>(`/api/questions/${encodeURIComponent(quizId)}`);
 
-  let mounted = true;
-  (async () => {
-    try {
-      const { data } = await api.get<any>(`/api/questions/${encodeURIComponent(quizId)}`);
+        if (!mounted) return;
 
-      if (!mounted) return;
-
-      if (Array.isArray(data)) {
-        setQuestions(data as Question[]);
-        setIsPdfMode(false);
-        setPdfUrl(null);
-      } else {
-        const obj = data as PdfQuizObject;
-        if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
-          const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
-          const baseQuestions: Question[] = [];
-
-          for (let i = 0; i < count; i++) {
-            const qObj = (obj.questions && obj.questions[i]) || {};
-            baseQuestions.push({
-              id: (qObj.id ?? i + 1) as number,
-              question: `سوال شماره ${i + 1}`,
-              options: ['الف', 'ب', 'ج', 'د'],
-              correct: qObj.correct ?? undefined,
-            } as Question & { correct?: string });
-          }
-
-          // ✅ اضافه کردن دامنه کامل برای pdfUrl
-          const fullPdfUrl = obj.pdfUrl.startsWith('http')
-            ? obj.pdfUrl
-            : `${import.meta.env.VITE_API_BASE_URL || 'https://quiz-app-server-3pa9.onrender.com'}${obj.pdfUrl}`;
-
-          setQuestions(baseQuestions);
-          setIsPdfMode(true);
-          setPdfUrl(fullPdfUrl);
-        } else if (obj.questions && Array.isArray(obj.questions)) {
-          setQuestions(obj.questions as any as Question[]);
+        if (Array.isArray(data)) {
+          setQuestions(data as Question[]);
           setIsPdfMode(false);
           setPdfUrl(null);
         } else {
-          setQuestions([]);
-          setIsPdfMode(false);
-          setPdfUrl(null);
+          const obj = data as PdfQuizObject;
+          if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
+            const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
+            const baseQuestions: Question[] = [];
+
+            for (let i = 0; i < count; i++) {
+              const qObj = (obj.questions && obj.questions[i]) || {};
+              baseQuestions.push({
+                id: (qObj.id ?? i + 1) as number,
+                question: `سوال شماره ${i + 1}`,
+                options: ['الف', 'ب', 'ج', 'د'],
+                correct: qObj.correct ?? undefined,
+              } as Question & { correct?: string });
+            }
+
+            // ✅ فقط اگر pdfUrl وجود داشته باشه، PDF Mode فعال کن
+            if (obj.pdfUrl) {
+              // اگر URL کامل هست از همون استفاده کن، در غیر اینصورت آدرس سرور رو اضافه کن
+              const fullPdfUrl = obj.pdfUrl.startsWith('http')
+                ? obj.pdfUrl
+                : `${import.meta.env.VITE_API_BASE_URL || 'https://quiz-app-server-3pa9.onrender.com'}/${obj.pdfUrl.replace(/^\/?/, '')}`;
+
+              setQuestions(baseQuestions);
+              setIsPdfMode(true);
+              setPdfUrl(fullPdfUrl);
+            } else {
+              setQuestions(baseQuestions);
+              setIsPdfMode(false);
+              setPdfUrl(null);
+            }
+          } else if (obj.questions && Array.isArray(obj.questions)) {
+            setQuestions(obj.questions as any as Question[]);
+            setIsPdfMode(false);
+            setPdfUrl(null);
+          } else {
+            setQuestions([]);
+            setIsPdfMode(false);
+            setPdfUrl(null);
+          }
         }
+
+        setIndex(0);
+      } catch (err) {
+        console.error(err);
+        alert('خطا در بارگذاری سوالات');
+      } finally {
+        if (mounted) setLoading(false);
       }
+    })();
 
-      setIndex(0);
-    } catch (err) {
-      console.error(err);
-      alert('خطا در بارگذاری سوالات');
-    } finally {
-      if (mounted) setLoading(false);
-    }
-  })();
-
-  return () => {
-    mounted = false;
-  };
-}, [quizId, name, navigate]);
-
-
+    return () => {
+      mounted = false;
+    };
+  }, [quizId, name, navigate]);
 
   const totalTime = useMemo(() => Math.max(60, questions.length * 60), [questions]);
 
@@ -212,7 +215,7 @@ useEffect(() => {
       </div>
 
       {/* PDF Modal */}
-      {showPdfModal && (
+      {showPdfModal && pdfUrl && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
             {/* Header */}
@@ -230,10 +233,10 @@ useEffect(() => {
                 onLoadSuccess={onDocumentLoadSuccess}
                 loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
               >
-                {Array.from(new Array(numPages), (el, index) => (
+                {Array.from(new Array(numPages ?? 0), (el, idx) => (
                   <Page
-                    key={`page_${index + 1}`}
-                    pageNumber={index + 1}
+                    key={`page_${idx + 1}`}
+                    pageNumber={idx + 1}
                     width={Math.min(window.innerWidth - 100, 800)}
                   />
                 ))}
