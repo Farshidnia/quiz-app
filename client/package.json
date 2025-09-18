@@ -14,8 +14,10 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.12",
     "moment-jalaali": "^0.10.4",
+    "pdfjs-dist": "^5.4.149",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-pdf": "^10.1.0",
     "react-router-dom": "^6.30.1"
   },
   "devDependencies": {
