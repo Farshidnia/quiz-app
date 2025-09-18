@@ -1,4 +1,3 @@
-// client/src/pages/Quiz.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -7,16 +6,20 @@ import QuestionCard from '../components/QuestionCard';
 import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+import { X } from 'lucide-react';
+
+// ست کردن worker برای pdf.js
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
 type PdfQuizObject = {
   mode?: 'pdf' | string;
-  title?: string;
   pdfUrl?: string;
   count?: number;
   questions?: Array<{ id?: number | string; correct?: string }>;
 };
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 export default function Quiz() {
   const [searchParams] = useSearchParams();
@@ -33,6 +36,10 @@ export default function Quiz() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
 
+  // state های مربوط به نمایش مودال PDF
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [numPages, setNumPages] = useState<number | null>(null);
+
   useEffect(() => {
     if (!name) {
       navigate('/');
@@ -47,12 +54,10 @@ export default function Quiz() {
         if (!mounted) return;
 
         if (Array.isArray(data)) {
-          // حالت قدیمی
           setQuestions(data as Question[]);
           setIsPdfMode(false);
           setPdfUrl(null);
         } else {
-          // حالت PDF
           const obj = data as PdfQuizObject;
           if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
             const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
@@ -63,24 +68,20 @@ export default function Quiz() {
                 id: (qObj.id ?? i + 1) as number,
                 question: `سوال شماره ${i + 1}`,
                 options: ['الف', 'ب', 'ج', 'د'],
-                // @ts-ignore
                 correct: qObj.correct ?? undefined,
               } as Question & { correct?: string });
             }
             setQuestions(baseQuestions);
             setIsPdfMode(true);
-            setPdfUrl(`${API_BASE}${obj.pdfUrl ?? ''}`);
+            setPdfUrl(obj.pdfUrl ?? null);
+          } else if (obj.questions && Array.isArray(obj.questions)) {
+            setQuestions(obj.questions as any as Question[]);
+            setIsPdfMode(false);
+            setPdfUrl(null);
           } else {
-            // حالت غیرمنتظره
-            if (obj.questions && Array.isArray(obj.questions)) {
-              setQuestions(obj.questions as any as Question[]);
-              setIsPdfMode(false);
-              setPdfUrl(null);
-            } else {
-              setQuestions([]);
-              setIsPdfMode(false);
-              setPdfUrl(null);
-            }
+            setQuestions([]);
+            setIsPdfMode(false);
+            setPdfUrl(null);
           }
         }
 
@@ -93,7 +94,9 @@ export default function Quiz() {
       }
     })();
 
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [quizId, name, navigate]);
 
   const totalTime = useMemo(() => Math.max(60, questions.length * 60), [questions]);
@@ -116,6 +119,10 @@ export default function Quiz() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
+    setNumPages(numPages);
   }
 
   if (loading) return <div className="mt-12"><Loading /></div>;
@@ -151,14 +158,12 @@ export default function Quiz() {
 
       {isPdfMode && pdfUrl && (
         <div className="flex justify-end">
-          <a
-            href={pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-ghost"
+          <button
+            onClick={() => setShowPdfModal(true)}
+            className="btn-primary"
           >
-            نمایش صورت سوال (PDF)
-          </a>
+            نمایش صورت سوال
+          </button>
         </div>
       )}
 
@@ -194,6 +199,48 @@ export default function Quiz() {
           )}
         </div>
       </div>
+
+      {/* PDF Modal */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-2 border-b">
+              <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
+              <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* PDF Scrollable Area */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <Document
+                file={pdfUrl}
+                onLoadSuccess={onDocumentLoadSuccess}
+                loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
+              >
+                {Array.from(new Array(numPages), (el, index) => (
+                  <Page
+                    key={`page_${index + 1}`}
+                    pageNumber={index + 1}
+                    width={Math.min(window.innerWidth - 100, 800)}
+                  />
+                ))}
+              </Document>
+            </div>
+
+            {/* Footer */}
+            <div className="p-2 border-t flex justify-end">
+              <button
+                onClick={() => setShowPdfModal(false)}
+                className="btn-primary"
+              >
+                بستن
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
