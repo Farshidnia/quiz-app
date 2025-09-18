@@ -1,4 +1,4 @@
-// server.js - نسخهٔ بازبینی‌شده و جامع
+// server.js - نسخهٔ نهایی و جامع (اصلاح‌شده برای PDF و CORS)
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -13,16 +13,20 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-// سرو فایل‌های استاتیک:
-// - درخواست /quizzes/pdf-sample.pdf -> public/quizzes/pdf-sample.pdf
-// - همچنین مسیر /api/static/* برای سازگاری با نسخه‌های قدیمی
-app.use('/api/static', express.static(PUBLIC_DIR));
+// ---------------------------
+// سرو فایل‌های استاتیک
+// ---------------------------
+// مسیر اصلی public
 app.use(express.static(PUBLIC_DIR));
+// مسیر قدیمی /api/static/*
+app.use('/api/static', express.static(PUBLIC_DIR));
 
 // Body parser
 app.use(express.json());
 
-// CORS (فقط origin های شناخته شده)
+// ---------------------------
+// CORS
+// ---------------------------
 const allowedOrigins = [
   "https://quiz-app-client-bwgb.onrender.com",
   "http://localhost:5173",
@@ -49,14 +53,13 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "https://quiz-app-client-bwgb.onrender.com");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  // جلوگیری از کش برای اینکه همیشه آخرین فایل‌ها خوانده شوند
   res.setHeader("Cache-Control", "no-store");
   next();
 });
 
-/* ---------------------------
-   ابزار کار با PostgreSQL (در صورت وجود DATABASE_URL)
---------------------------- */
+// ---------------------------
+// PostgreSQL
+// ---------------------------
 let pool = null;
 async function initPostgres() {
   if (!process.env.DATABASE_URL) {
@@ -72,10 +75,8 @@ async function initPostgres() {
       },
     });
 
-    // تست اتصال
     await pool.query('SELECT 1');
 
-    // ایجاد جدول submissions اگر وجود نداشت
     const createTableSQL = `
       CREATE TABLE IF NOT EXISTS submissions (
         id BIGSERIAL PRIMARY KEY,
@@ -96,9 +97,9 @@ async function initPostgres() {
   }
 }
 
-/* ---------------------------
-   کمکی: خواندن JSON از فایل
---------------------------- */
+// ---------------------------
+// ابزار کار با فایل JSON
+// ---------------------------
 async function readJSON(filePath, defaultValue = null) {
   try {
     const txt = await fs.readFile(filePath, 'utf8');
@@ -108,9 +109,9 @@ async function readJSON(filePath, defaultValue = null) {
   }
 }
 
-/* ---------------------------
-   middleware برای نقش ادمین
---------------------------- */
+// ---------------------------
+// middleware ادمین
+// ---------------------------
 function authorizeRole(requiredRole) {
   return (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -130,9 +131,9 @@ function authorizeRole(requiredRole) {
   };
 }
 
-/* ---------------------------
-   لاگین ادمین
---------------------------- */
+// ---------------------------
+// login ادمین
+// ---------------------------
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -150,11 +151,9 @@ app.post('/api/admin/login', (req, res) => {
   res.json({ success: true, token, role });
 });
 
-/* ---------------------------
-   گرفتن سوالات یک آزمون (کاربر)
-   - اگر فایل JSON آرایه باشد => همان آرایه برگردانده می‌شود (حالت قدیمی)
-   - اگر شیء با فیلد questions باشد => همان شیء برگردانده می‌شود (حالت pdf-mode)
---------------------------- */
+// ---------------------------
+// گرفتن سوالات
+// ---------------------------
 app.get('/api/questions/:quizId', async (req, res) => {
   try {
     const quizId = req.params.quizId;
@@ -163,6 +162,11 @@ app.get('/api/questions/:quizId', async (req, res) => {
 
     if (!quiz) return res.status(404).json({ error: 'quiz not found' });
 
+    // اصلاح URL PDF برای client
+    if (quiz.pdfUrl && !quiz.pdfUrl.startsWith('http')) {
+      quiz.pdfUrl = `${process.env.VITE_API_BASE_URL || 'https://quiz-app-server-3pa9.onrender.com'}/${quiz.pdfUrl.replace(/^\/?/, '')}`;
+    }
+
     res.json(quiz);
   } catch (err) {
     console.error('/api/questions error:', err);
@@ -170,11 +174,9 @@ app.get('/api/questions/:quizId', async (req, res) => {
   }
 });
 
-/* ---------------------------
-   ارسال نتیجه آزمون (submit)
-   - پشتیبانی از ساختار قدیمی (آرایه) و ساختار جدید (شیء با questions + count + pdfUrl)
-   - ذخیره در PostgreSQL در صورت فعال بودن pool، وگرنه در فایل submissions.json
---------------------------- */
+// ---------------------------
+// submit
+// ---------------------------
 app.post('/api/submit', async (req, res) => {
   try {
     const { name, quizId, answers } = req.body;
@@ -185,40 +187,27 @@ app.post('/api/submit', async (req, res) => {
     const filePath = path.join(DATA_DIR, `${quizId}.json`);
     const quizData = await readJSON(filePath, null);
 
-    if (!quizData) {
-      console.error('[submit] quiz not found:', filePath);
-      return res.status(404).json({ error: 'quiz not found' });
-    }
+    if (!quizData) return res.status(404).json({ error: 'quiz not found' });
 
-    // استخراج آرایهٔ سوالات بر اساس ساختار فایل
     let questions = [];
     if (Array.isArray(quizData)) {
       questions = quizData;
     } else if (quizData.questions && Array.isArray(quizData.questions)) {
       const base = quizData.questions;
       const count = typeof quizData.count === 'number' ? quizData.count : base.length;
-      const out = [];
       for (let i = 0; i < count; i++) {
         const src = base[i] || {};
-        out.push({
+        questions.push({
           id: src.id ?? (i + 1),
           question: src.question ?? `سوال شماره ${i + 1}`,
           options: src.options ?? ['الف', 'ب', 'ج', 'د'],
           correct: src.correct ?? undefined
         });
       }
-      questions = out;
     } else {
-      console.error('[submit] unsupported quiz format:', typeof quizData);
       return res.status(500).json({ error: 'Invalid quiz format' });
     }
 
-    if (!Array.isArray(questions) || questions.length === 0) {
-      console.error('[submit] questions invalid or empty');
-      return res.status(500).json({ error: 'Invalid quiz questions' });
-    }
-
-    // محاسبه نمره
     let score = 0;
     for (const q of questions) {
       const qid = String(q.id);
@@ -228,10 +217,8 @@ app.post('/api/submit', async (req, res) => {
         score++;
       }
     }
-
     const total = questions.length;
 
-    // ذخیره
     if (pool) {
       const insertSQL = `
         INSERT INTO submissions(name, quiz_id, score, total, answers)
@@ -243,9 +230,7 @@ app.post('/api/submit', async (req, res) => {
       const inserted = r.rows[0];
       return res.json({ score, total, id: inserted.id, time: inserted.time });
     } else {
-      if (!fsSync.existsSync(DATA_DIR)) {
-        fsSync.mkdirSync(DATA_DIR, { recursive: true });
-      }
+      if (!fsSync.existsSync(DATA_DIR)) fsSync.mkdirSync(DATA_DIR, { recursive: true });
       const subsPath = path.join(DATA_DIR, 'submissions.json');
       let subs = await readJSON(subsPath, []);
       if (!Array.isArray(subs)) subs = [];
@@ -262,7 +247,6 @@ app.post('/api/submit', async (req, res) => {
 
       subs.push(record);
       await fs.writeFile(subsPath, JSON.stringify(subs, null, 2), 'utf8');
-
       return res.json({ score, total, id: record.id, time: record.time });
     }
   } catch (err) {
@@ -271,10 +255,9 @@ app.post('/api/submit', async (req, res) => {
   }
 });
 
-/* ---------------------------
-   گرفتن نتایج (با افزودن quizTitle)
-   - برای هر ردیف، عنوان آزمون از فایل data/[quizId].json خوانده و اضافه می‌شود
---------------------------- */
+// ---------------------------
+// نتایج
+// ---------------------------
 app.get('/api/results', async (req, res) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
@@ -282,12 +265,10 @@ app.get('/api/results', async (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
     if (!['SUPER_ADMIN', 'VIEW_ONLY'].includes(decoded.role)) {
       return res.status(403).json({ error: 'دسترسی غیرمجاز' });
     }
 
-    // تابع کمکی برای گرفتن title از فایل آزمون
     const getQuizTitle = async (quizId) => {
       const filePath = path.join(DATA_DIR, `${quizId}.json`);
       try {
@@ -328,9 +309,9 @@ app.get('/api/results', async (req, res) => {
   }
 });
 
-/* ---------------------------
-   نمایش جزئیات یک نتیجه خاص
---------------------------- */
+// ---------------------------
+// جزئیات یک نتیجه خاص
+// ---------------------------
 app.get('/api/results/:id', async (req, res) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
@@ -338,21 +319,14 @@ app.get('/api/results/:id', async (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!['SUPER_ADMIN', 'VIEW_ONLY'].includes(decoded.role)) {
-      return res.status(403).json({ error: 'دسترسی غیرمجاز' });
-    }
+    if (!['SUPER_ADMIN', 'VIEW_ONLY'].includes(decoded.role)) return res.status(403).json({ error: 'دسترسی غیرمجاز' });
 
     if (pool) {
       const idParam = req.params.id;
       const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, time FROM submissions WHERE id = $1 LIMIT 1;`;
       const r = await pool.query(q, [idParam]);
       if (r.rowCount === 0) return res.status(404).json({ error: 'submission not found' });
-
-      const submission = {
-        ...r.rows[0],
-        time: r.rows[0].time instanceof Date ? r.rows[0].time.toISOString() : r.rows[0].time
-      };
-
+      const submission = { ...r.rows[0], time: r.rows[0].time instanceof Date ? r.rows[0].time.toISOString() : r.rows[0].time };
       const quizPath = path.join(DATA_DIR, `${submission.quizId}.json`);
       const quiz = await readJSON(quizPath, []);
       return res.json({ submission, quiz });
@@ -361,7 +335,6 @@ app.get('/api/results/:id', async (req, res) => {
       const submissions = await readJSON(subsPath, []);
       const submission = submissions.find(s => String(s.id) === req.params.id);
       if (!submission) return res.status(404).json({ error: 'submission not found' });
-
       const quizPath = path.join(DATA_DIR, `${submission.quizId}.json`);
       const quiz = await readJSON(quizPath, []);
       return res.json({ submission, quiz });
@@ -372,27 +345,19 @@ app.get('/api/results/:id', async (req, res) => {
   }
 });
 
-/* ---------------------------
-   ساخت آزمون جدید (SUPER_ADMIN)
-   - انعطاف‌پذیر: اگر بدی آرایه، آن را wrap کرده و title می‌سازد؛
-     اگر شیء بدی همان شیء را ذخیره می‌کند.
---------------------------- */
+// ---------------------------
+// ایجاد آزمون جدید
+// ---------------------------
 app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
   const body = req.body;
-
-  if (!body || !body.quizId) {
-    return res.status(400).json({ error: 'اطلاعات آزمون معتبر نیست (نیاز به quizId)' });
-  }
+  if (!body || !body.quizId) return res.status(400).json({ error: 'اطلاعات آزمون معتبر نیست (نیاز به quizId)' });
 
   const quizId = body.quizId;
   const filePath = path.join(DATA_DIR, `${quizId}.json`);
-
   let toWrite = body.content ?? body.questions ?? body;
-  if (Array.isArray(toWrite)) {
-    toWrite = { title: body.title || quizId, questions: toWrite };
-  } else if (typeof toWrite === 'object') {
-    if (!toWrite.title) toWrite.title = body.title || quizId;
-  }
+
+  if (Array.isArray(toWrite)) toWrite = { title: body.title || quizId, questions: toWrite };
+  else if (typeof toWrite === 'object' && !toWrite.title) toWrite.title = body.title || quizId;
 
   try {
     await fs.writeFile(filePath, JSON.stringify(toWrite, null, 2), 'utf8');
@@ -403,24 +368,19 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
   }
 });
 
-/* ---------------------------
-   لیست آزمون‌ها
---------------------------- */
+// ---------------------------
+// لیست آزمون‌ها
+// ---------------------------
 app.get('/api/quizzes', async (req, res) => {
   try {
     const files = await fs.readdir(DATA_DIR);
     const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'submissions.json');
-
     const quizzes = [];
+
     for (const file of jsonFiles) {
       const filePath = path.join(DATA_DIR, file);
       const data = await readJSON(filePath, null);
-      if (data) {
-        quizzes.push({
-          id: path.basename(file, '.json'),
-          title: data.title || path.basename(file, '.json')
-        });
-      }
+      if (data) quizzes.push({ id: path.basename(file, '.json'), title: data.title || path.basename(file, '.json') });
     }
 
     res.json(quizzes);
@@ -430,22 +390,18 @@ app.get('/api/quizzes', async (req, res) => {
   }
 });
 
-/* ---------------------------
-   اطمینان از وجود پوشه data و فایل submissions.json
---------------------------- */
+// ---------------------------
+// اطمینان از وجود پوشه و فایل‌ها
+// ---------------------------
 async function ensureDataFiles() {
-  if (!fsSync.existsSync(DATA_DIR)) {
-    fsSync.mkdirSync(DATA_DIR, { recursive: true });
-  }
+  if (!fsSync.existsSync(DATA_DIR)) fsSync.mkdirSync(DATA_DIR, { recursive: true });
   const subsPath = path.join(DATA_DIR, 'submissions.json');
-  if (!fsSync.existsSync(subsPath)) {
-    await fs.writeFile(subsPath, '[]', 'utf8');
-  }
+  if (!fsSync.existsSync(subsPath)) await fs.writeFile(subsPath, '[]', 'utf8');
 }
 
-/* ---------------------------
-   شروع برنامه
---------------------------- */
+// ---------------------------
+// شروع سرور
+// ---------------------------
 ensureDataFiles()
   .then(() => initPostgres())
   .then(() => {
