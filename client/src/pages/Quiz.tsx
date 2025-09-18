@@ -40,64 +40,75 @@ export default function Quiz() {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (!name) {
-      navigate('/');
-      return;
-    }
+  
 
-    let mounted = true;
-    (async () => {
-      try {
-        const { data } = await api.get<any>(`/api/questions/${encodeURIComponent(quizId)}`);
+useEffect(() => {
+  if (!name) {
+    navigate('/');
+    return;
+  }
 
-        if (!mounted) return;
+  let mounted = true;
+  (async () => {
+    try {
+      const { data } = await api.get<any>(`/api/questions/${encodeURIComponent(quizId)}`);
 
-        if (Array.isArray(data)) {
-          setQuestions(data as Question[]);
+      if (!mounted) return;
+
+      if (Array.isArray(data)) {
+        setQuestions(data as Question[]);
+        setIsPdfMode(false);
+        setPdfUrl(null);
+      } else {
+        const obj = data as PdfQuizObject;
+        if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
+          const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
+          const baseQuestions: Question[] = [];
+
+          for (let i = 0; i < count; i++) {
+            const qObj = (obj.questions && obj.questions[i]) || {};
+            baseQuestions.push({
+              id: (qObj.id ?? i + 1) as number,
+              question: `سوال شماره ${i + 1}`,
+              options: ['الف', 'ب', 'ج', 'د'],
+              correct: qObj.correct ?? undefined,
+            } as Question & { correct?: string });
+          }
+
+          // ✅ اضافه کردن دامنه کامل برای pdfUrl
+          const fullPdfUrl = obj.pdfUrl.startsWith('http')
+            ? obj.pdfUrl
+            : `${import.meta.env.VITE_API_BASE_URL || 'https://quiz-app-server-3pa9.onrender.com'}${obj.pdfUrl}`;
+
+          setQuestions(baseQuestions);
+          setIsPdfMode(true);
+          setPdfUrl(fullPdfUrl);
+        } else if (obj.questions && Array.isArray(obj.questions)) {
+          setQuestions(obj.questions as any as Question[]);
           setIsPdfMode(false);
           setPdfUrl(null);
         } else {
-          const obj = data as PdfQuizObject;
-          if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
-            const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
-            const baseQuestions: Question[] = [];
-            for (let i = 0; i < count; i++) {
-              const qObj = (obj.questions && obj.questions[i]) || {};
-              baseQuestions.push({
-                id: (qObj.id ?? i + 1) as number,
-                question: `سوال شماره ${i + 1}`,
-                options: ['الف', 'ب', 'ج', 'د'],
-                correct: qObj.correct ?? undefined,
-              } as Question & { correct?: string });
-            }
-            setQuestions(baseQuestions);
-            setIsPdfMode(true);
-            setPdfUrl(obj.pdfUrl ?? null);
-          } else if (obj.questions && Array.isArray(obj.questions)) {
-            setQuestions(obj.questions as any as Question[]);
-            setIsPdfMode(false);
-            setPdfUrl(null);
-          } else {
-            setQuestions([]);
-            setIsPdfMode(false);
-            setPdfUrl(null);
-          }
+          setQuestions([]);
+          setIsPdfMode(false);
+          setPdfUrl(null);
         }
-
-        setIndex(0);
-      } catch (err) {
-        console.error(err);
-        alert('خطا در بارگذاری سوالات');
-      } finally {
-        if (mounted) setLoading(false);
       }
-    })();
 
-    return () => {
-      mounted = false;
-    };
-  }, [quizId, name, navigate]);
+      setIndex(0);
+    } catch (err) {
+      console.error(err);
+      alert('خطا در بارگذاری سوالات');
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  })();
+
+  return () => {
+    mounted = false;
+  };
+}, [quizId, name, navigate]);
+
+
 
   const totalTime = useMemo(() => Math.max(60, questions.length * 60), [questions]);
 
