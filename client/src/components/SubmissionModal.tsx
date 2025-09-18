@@ -14,6 +14,7 @@ type Submission = {
   id: number | string;
   name: string;
   quizId: string;
+  quizTitle?: string; // اضافه شده برای نمایش عنوان فارسی آزمون
   score: number;
   total: number;
   answers: Record<string, any>;
@@ -68,9 +69,12 @@ export default function SubmissionModal({
       >
         <div className="p-4 border-b flex items-center justify-between">
           <div>
-            <div className="text-lg font-semibold">جزئیات آزمون — {sub.name}</div>
+            <div className="text-lg font-semibold">
+              جزئیات آزمون — {sub.name}
+            </div>
             <div className="text-sm text-gray-600">
-              آزمون: {sub.quizId} — {moment(sub.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
+              آزمون: {sub.quizTitle || sub.quizId} —{' '}
+              {moment(sub.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -96,7 +100,9 @@ export default function SubmissionModal({
 
         <div className="p-4 overflow-y-auto" style={{ maxHeight: '70vh' }}>
           {quiz.length === 0 && (
-            <div className="text-center text-gray-500">سوالی برای نمایش وجود ندارد.</div>
+            <div className="text-center text-gray-500">
+              سوالی برای نمایش وجود ندارد.
+            </div>
           )}
 
           {quiz.map((q, idx) => {
@@ -110,20 +116,37 @@ export default function SubmissionModal({
               <div key={qid} className="p-4 mb-4 rounded-lg border bg-white shadow-sm">
                 <div className="flex items-start justify-between mb-2">
                   <div className="font-medium">سوال {idx + 1}</div>
-                  <div className={`text-sm font-medium ${isCorrect ? 'text-green-600' : (studentAnswer ? 'text-red-600' : 'text-gray-500')}`}>
-                    {studentAnswer ? (isCorrect ? 'صحیح' : 'غلط') : 'بدون پاسخ'}
+                  <div
+                    className={`text-sm font-medium ${
+                      isCorrect
+                        ? 'text-green-600'
+                        : studentAnswer
+                        ? 'text-red-600'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {studentAnswer
+                      ? isCorrect
+                        ? 'صحیح'
+                        : 'غلط'
+                      : 'بدون پاسخ'}
                   </div>
                 </div>
 
                 <div className="mb-3 text-gray-800">
-                  {q.question && !q.question.startsWith('سوال شماره') ? q.question : null}
+                  {q.question && !q.question.startsWith('سوال شماره')
+                    ? q.question
+                    : null}
                 </div>
 
                 <div className="space-y-2">
                   <div className="text-sm text-gray-600">گزینه‌ها:</div>
                   <div className="grid grid-cols-2 gap-2">
                     {options.map((opt, i) => (
-                      <div key={i} className="px-3 py-2 rounded bg-gray-50 text-gray-800 text-sm">
+                      <div
+                        key={i}
+                        className="px-3 py-2 rounded bg-gray-50 text-gray-800 text-sm"
+                      >
                         <strong className="ml-2">{opt}</strong>
                       </div>
                     ))}

@@ -100,23 +100,25 @@ export default function AdminPage() {
   }
 
   async function handleOpenModal(sub: Submission) {
-    setModalLoading(true);
-    try {
-      const res = await api.get(`/api/questions/${encodeURIComponent(sub.quizId)}`);
-      const data = res.data;
+  setModalLoading(true);
+  try {
+    const res = await api.get(`/api/questions/${encodeURIComponent(sub.quizId)}`);
+    const data = res.data;
 
-      let quiz: Question[] = [];
-      if (Array.isArray(data)) quiz = data;
-      else if (Array.isArray((data as any).questions)) quiz = (data as any).questions;
+    let quiz: Question[] = [];
+    if (Array.isArray(data)) quiz = data;
+    else if (Array.isArray((data as any).questions)) quiz = (data as any).questions;
 
-      setModalData({ submission: sub, quiz });
-    } catch (err) {
-      console.error(err);
-      alert('خطا در دریافت سوالات برای نمایش جزئیات');
-    } finally {
-      setModalLoading(false);
-    }
+    // ارسال quizTitle به modalData
+    setModalData({ submission: { ...sub, quizTitle: sub.quizTitle }, quiz });
+  } catch (err) {
+    console.error(err);
+    alert('خطا در دریافت سوالات برای نمایش جزئیات');
+  } finally {
+    setModalLoading(false);
   }
+}
+
 
   function handleCloseModal() {
     setModalData(null);
