@@ -10,6 +10,7 @@ type Submission = {
   id: number;
   name: string;
   quizId: string;
+  quizTitle: string; // ✅ اضافه شد برای نمایش اسم آزمون
   score: number;
   total: number;
   answers: Record<string, any>;
@@ -35,7 +36,7 @@ export default function AdminPage() {
   // ui controls
   const [search, setSearch] = useState('');
   const [quizFilter, setQuizFilter] = useState('all');
-  const [sortBy, setSortBy] = useState<'time' | 'score' | 'name' | 'quizId'>('time');
+  const [sortBy, setSortBy] = useState<'time' | 'score' | 'name' | 'quizTitle'>('time');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
 
   // pagination
@@ -121,9 +122,13 @@ export default function AdminPage() {
     setModalData(null);
   }
 
+  // ✅ ساخت لیست یکتا از آزمون‌ها برای فیلتر
   const quizOptions = useMemo(() => {
-    const setQ = new Set(results.map(r => r.quizId));
-    return ['all', ...Array.from(setQ)];
+    const uniqueQuizzes = new Map<string, string>();
+    results.forEach(r => {
+      uniqueQuizzes.set(r.quizId, r.quizTitle || r.quizId);
+    });
+    return [{ id: 'all', title: 'همه آزمون‌ها' }, ...Array.from(uniqueQuizzes.entries()).map(([id, title]) => ({ id, title }))];
   }, [results]);
 
   const filtered = useMemo(() => {
@@ -133,6 +138,7 @@ export default function AdminPage() {
       if (!s) return true;
       return (
         String(r.name).toLowerCase().includes(s) ||
+        String(r.quizTitle).toLowerCase().includes(s) ||
         String(r.quizId).toLowerCase().includes(s)
       );
     });
@@ -145,7 +151,7 @@ export default function AdminPage() {
       if (sortBy === 'score') return (a.score - b.score) * dir;
       if (sortBy === 'time') return (new Date(a.time).getTime() - new Date(b.time).getTime()) * dir;
       if (sortBy === 'name') return a.name.localeCompare(b.name) * dir;
-      if (sortBy === 'quizId') return a.quizId.localeCompare(b.quizId) * dir;
+      if (sortBy === 'quizTitle') return a.quizTitle.localeCompare(b.quizTitle) * dir;
       return 0;
     });
     return arr;
@@ -207,10 +213,11 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* فیلتر و جستجو */}
           <div className="mt-4 grid gap-3">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <input
-                placeholder="جستجو بر اساس نام یا شناسه آزمون"
+                placeholder="جستجو بر اساس نام یا آزمون"
                 value={search}
                 onChange={e => {
                   setSearch(e.target.value);
@@ -227,14 +234,15 @@ export default function AdminPage() {
                 className="border rounded-lg px-3 py-2"
               >
                 {quizOptions.map(q => (
-                  <option key={q} value={q}>
-                    {q === 'all' ? 'همه آزمون‌ها' : q}
+                  <option key={q.id} value={q.id}>
+                    {q.title}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
+          {/* جدول نتایج */}
           <div className="mt-4">
             {loading ? (
               <Loading />
@@ -256,7 +264,7 @@ export default function AdminPage() {
                         <td className="px-4 py-2 text-center">
                           {moment(r.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
                         </td>
-                        <td className="px-4 py-2 text-center">{r.quizId}</td>
+                        <td className="px-4 py-2 text-center">{r.quizTitle}</td>
                         <td className="px-4 py-2 text-center">{r.name}</td>
                         <td className="px-4 py-2 text-center">{r.score}/{r.total}</td>
                         <td className="px-4 py-2 text-center">
@@ -293,6 +301,7 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* modal loading */}
           {modalLoading && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
               <Loading />
