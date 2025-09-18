@@ -7,8 +7,8 @@ import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
-import 'react-pdf/dist/esm/Page/TextLayer.css';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import { X } from 'lucide-react';
 
 // ست کردن worker برای pdf.js
