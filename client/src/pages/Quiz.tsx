@@ -11,11 +11,8 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { X } from 'lucide-react';
 
-// ✅ ست کردن PDF Worker محلی
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.js',
-  import.meta.url
-).toString();
+// ست کردن worker برای pdf.js
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.js`;
 
 type PdfQuizObject = {
   mode?: 'pdf' | string;
@@ -39,7 +36,6 @@ export default function Quiz() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
 
-  // state های مربوط به نمایش مودال PDF
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
 
@@ -76,7 +72,6 @@ export default function Quiz() {
               } as Question & { correct?: string });
             }
 
-            // ✅ اگر pdfUrl نسبی بود به آدرس سرور اضافه کن
             if (obj.pdfUrl) {
               const fullPdfUrl = obj.pdfUrl.startsWith('http')
                 ? obj.pdfUrl
@@ -216,11 +211,9 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* PDF Modal */}
       {showPdfModal && pdfUrl && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
-            {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 border-b">
               <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
               <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
@@ -228,12 +221,10 @@ export default function Quiz() {
               </button>
             </div>
 
-            {/* PDF Scrollable Area */}
             <div className="flex-1 overflow-y-auto p-4">
               <Document
                 file={{ url: pdfUrl }}
                 onLoadSuccess={onDocumentLoadSuccess}
-                crossOrigin="anonymous"
                 loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
               >
                 {Array.from(new Array(numPages ?? 0), (el, idx) => (
@@ -246,7 +237,6 @@ export default function Quiz() {
               </Document>
             </div>
 
-            {/* Footer */}
             <div className="p-2 border-t flex justify-end">
               <button
                 onClick={() => setShowPdfModal(false)}
