@@ -12,7 +12,8 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { X } from 'lucide-react';
 
-// worker از فایل محلی (نام فایل دقیقاً همان است که در public/pdfjs گذاشتی)
+// ست کردن pdf.js worker از پوشه public
+// فایل باید در مسیر client/public/pdfjs/pdf.worker.min.mjs قرار داشته باشد
 pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdfjs/pdf.worker.min.mjs`;
 
 type PdfQuizObject = {
@@ -37,12 +38,12 @@ export default function Quiz() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
 
-  // PDF modal
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
 
-  // from env (set this in Render as VITE_API_BASE_URL = https://quiz-app-server-3pa9.onrender.com)
-  const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') || 'https://quiz-app-server-3pa9.onrender.com';
+  const API_BASE =
+    (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') ||
+    'https://quiz-app-server-3pa9.onrender.com';
 
   useEffect(() => {
     if (!name) {
@@ -77,7 +78,7 @@ export default function Quiz() {
               } as Question & { correct?: string });
             }
 
-            // resolve pdf URL robustly (try several candidates)
+            // مسیر PDF
             const raw = obj.pdfUrl ?? '';
             let finalUrl: string | null = null;
 
@@ -85,44 +86,33 @@ export default function Quiz() {
               const rawPath = raw.startsWith('/') ? raw : `/${raw}`;
 
               const candidates = [
-                // if raw already absolute
-                ...(raw.startsWith('http') ? [raw] : []),
-                // API base + rawPath (most likely)
+                raw.startsWith('http') ? raw : null,
                 `${API_BASE}${rawPath}`,
-                // API base + /api/static + rawPath (server may expose under /api/static)
                 `${API_BASE}/api/static${rawPath}`,
-                // client origin + rawPath (in case file is served by client static)
                 `${window.location.origin}${rawPath}`,
-                // raw as-is (relative) - fallback
                 raw
-              ].filter(Boolean);
+              ].filter(Boolean) as string[];
 
               console.log('[PDF] candidates to try:', candidates);
 
-              // test candidates quickly (HEAD first, fallback to GET)
               for (const u of candidates) {
                 try {
-                  // try HEAD (lighter)
                   const head = await fetch(u, { method: 'HEAD' });
-                  if (head && head.ok) {
+                  if (head.ok) {
                     finalUrl = u;
                     break;
                   }
-                } catch (e) {
-                  // HEAD might fail / be blocked. try GET as fallback.
+                } catch {
                   try {
                     const get = await fetch(u, { method: 'GET' });
-                    if (get && get.ok) {
+                    if (get.ok) {
                       finalUrl = u;
                       break;
                     }
-                  } catch (_e) {
-                    // ignore and continue
-                  }
+                  } catch {}
                 }
               }
 
-              // If nothing found, fallback to API_BASE + rawPath (most likely correct)
               if (!finalUrl) {
                 finalUrl = `${API_BASE}${rawPath}`;
               }
