@@ -36,6 +36,7 @@ export default function Quiz() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
 
+  // state های مربوط به نمایش مودال PDF
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
 
@@ -72,19 +73,14 @@ export default function Quiz() {
               } as Question & { correct?: string });
             }
 
-            if (obj.pdfUrl) {
-              const fullPdfUrl = obj.pdfUrl.startsWith('http')
-                ? obj.pdfUrl
-                : `${import.meta.env.VITE_API_BASE_URL || 'https://quiz-app-server-3pa9.onrender.com'}/${obj.pdfUrl.replace(/^\/?/, '')}`;
+            // ✅ اضافه کردن دامنه کامل برای pdfUrl
+            const fullPdfUrl = obj.pdfUrl?.startsWith('http')
+              ? obj.pdfUrl
+              : `https://quiz-app-server-3pa9.onrender.com${obj.pdfUrl}`;
 
-              setQuestions(baseQuestions);
-              setIsPdfMode(true);
-              setPdfUrl(fullPdfUrl);
-            } else {
-              setQuestions(baseQuestions);
-              setIsPdfMode(false);
-              setPdfUrl(null);
-            }
+            setQuestions(baseQuestions);
+            setIsPdfMode(true);
+            setPdfUrl(fullPdfUrl);
           } else if (obj.questions && Array.isArray(obj.questions)) {
             setQuestions(obj.questions as any as Question[]);
             setIsPdfMode(false);
@@ -211,9 +207,11 @@ export default function Quiz() {
         </div>
       </div>
 
-      {showPdfModal && pdfUrl && (
+      {/* PDF Modal */}
+      {showPdfModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
+            {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 border-b">
               <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
               <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
@@ -221,22 +219,24 @@ export default function Quiz() {
               </button>
             </div>
 
+            {/* PDF Scrollable Area */}
             <div className="flex-1 overflow-y-auto p-4">
               <Document
-                file={{ url: pdfUrl }}
+                file={pdfUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
                 loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
               >
-                {Array.from(new Array(numPages ?? 0), (el, idx) => (
+                {Array.from(new Array(numPages), (el, index) => (
                   <Page
-                    key={`page_${idx + 1}`}
-                    pageNumber={idx + 1}
+                    key={`page_${index + 1}`}
+                    pageNumber={index + 1}
                     width={Math.min(window.innerWidth - 100, 800)}
                   />
                 ))}
               </Document>
             </div>
 
+            {/* Footer */}
             <div className="p-2 border-t flex justify-end">
               <button
                 onClick={() => setShowPdfModal(false)}
