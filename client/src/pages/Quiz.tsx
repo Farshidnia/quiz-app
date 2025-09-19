@@ -1,3 +1,4 @@
+// client/src/pages/Quiz.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
@@ -11,8 +12,8 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { X } from 'lucide-react';
 
-// ست کردن worker برای pdf.js
-pdfjs.GlobalWorkerOptions.workerSrc = `/pdfjs/pdf.worker.min.mjs`;
+// worker از فایل محلی (نام فایل دقیقاً همان است که در public/pdfjs گذاشتی)
+pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdfjs/pdf.worker.min.mjs`;
 
 type PdfQuizObject = {
   mode?: 'pdf' | string;
@@ -36,9 +37,12 @@ export default function Quiz() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isPdfMode, setIsPdfMode] = useState(false);
 
-  // state های مربوط به نمایش مودال PDF
+  // PDF modal
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
+
+  // from env (set this in Render as VITE_API_BASE_URL = https://quiz-app-server-3pa9.onrender.com)
+  const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') || 'https://quiz-app-server-3pa9.onrender.com';
 
   useEffect(() => {
     if (!name) {
@@ -73,14 +77,61 @@ export default function Quiz() {
               } as Question & { correct?: string });
             }
 
-            // ✅ اضافه کردن دامنه کامل برای pdfUrl
-            const fullPdfUrl = obj.pdfUrl?.startsWith('http')
-              ? obj.pdfUrl
-              : `https://quiz-app-server-3pa9.onrender.com${obj.pdfUrl}`;
+            // resolve pdf URL robustly (try several candidates)
+            const raw = obj.pdfUrl ?? '';
+            let finalUrl: string | null = null;
 
+            if (raw) {
+              const rawPath = raw.startsWith('/') ? raw : `/${raw}`;
+
+              const candidates = [
+                // if raw already absolute
+                ...(raw.startsWith('http') ? [raw] : []),
+                // API base + rawPath (most likely)
+                `${API_BASE}${rawPath}`,
+                // API base + /api/static + rawPath (server may expose under /api/static)
+                `${API_BASE}/api/static${rawPath}`,
+                // client origin + rawPath (in case file is served by client static)
+                `${window.location.origin}${rawPath}`,
+                // raw as-is (relative) - fallback
+                raw
+              ].filter(Boolean);
+
+              console.log('[PDF] candidates to try:', candidates);
+
+              // test candidates quickly (HEAD first, fallback to GET)
+              for (const u of candidates) {
+                try {
+                  // try HEAD (lighter)
+                  const head = await fetch(u, { method: 'HEAD' });
+                  if (head && head.ok) {
+                    finalUrl = u;
+                    break;
+                  }
+                } catch (e) {
+                  // HEAD might fail / be blocked. try GET as fallback.
+                  try {
+                    const get = await fetch(u, { method: 'GET' });
+                    if (get && get.ok) {
+                      finalUrl = u;
+                      break;
+                    }
+                  } catch (_e) {
+                    // ignore and continue
+                  }
+                }
+              }
+
+              // If nothing found, fallback to API_BASE + rawPath (most likely correct)
+              if (!finalUrl) {
+                finalUrl = `${API_BASE}${rawPath}`;
+              }
+            }
+
+            console.log('[PDF] resolved pdfUrl:', finalUrl, ' raw:', raw);
             setQuestions(baseQuestions);
             setIsPdfMode(true);
-            setPdfUrl(fullPdfUrl);
+            setPdfUrl(finalUrl);
           } else if (obj.questions && Array.isArray(obj.questions)) {
             setQuestions(obj.questions as any as Question[]);
             setIsPdfMode(false);
@@ -104,7 +155,7 @@ export default function Quiz() {
     return () => {
       mounted = false;
     };
-  }, [quizId, name, navigate]);
+  }, [quizId, name, navigate, API_BASE]);
 
   const totalTime = useMemo(() => Math.max(60, questions.length * 60), [questions]);
 
@@ -221,19 +272,23 @@ export default function Quiz() {
 
             {/* PDF Scrollable Area */}
             <div className="flex-1 overflow-y-auto p-4">
-              <Document
-                file={pdfUrl}
-                onLoadSuccess={onDocumentLoadSuccess}
-                loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
-              >
-                {Array.from(new Array(numPages), (el, index) => (
-                  <Page
-                    key={`page_${index + 1}`}
-                    pageNumber={index + 1}
-                    width={Math.min(window.innerWidth - 100, 800)}
-                  />
-                ))}
-              </Document>
+              {pdfUrl ? (
+                <Document
+                  file={pdfUrl}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
+                >
+                  {Array.from(new Array(numPages ?? 0), (el, pidx) => (
+                    <Page
+                      key={`page_${pidx + 1}`}
+                      pageNumber={pidx + 1}
+                      width={Math.min(window.innerWidth - 100, 800)}
+                    />
+                  ))}
+                </Document>
+              ) : (
+                <div className="text-center py-6">آدرس فایل PDF نامشخص است.</div>
+              )}
             </div>
 
             {/* Footer */}
