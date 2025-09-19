@@ -1,4 +1,4 @@
-// server.js - نسخهٔ نهایی بدون حذف هیچ بخشی + حل مشکل CORS برای PDF
+// server.js - نسخهٔ نهایی با تنظیمات CORS و سرو استاتیک دقیق
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -13,11 +13,46 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-/* ---------------------------
-   CORS پیکربندی شده
---------------------------- */
+// -----------------------------
+// Static files
+// expose /api/static/* -> PUBLIC_DIR
+// also expose root static for other assets
+// -----------------------------
+
+// Ensure preflight OPTIONS for static route and add CORS headers for these responses
+app.options('/api/static/*', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return res.sendStatus(204);
+});
+
+// For any request to /api/static, attach CORS headers so PDF requests from client won't be blocked
+app.use('/api/static', (req, res, next) => {
+  // allow the configured client origin (or fallback)
+  const origin = process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com';
+  res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  // Avoid caching static assets to ensure latest uploaded PDFs are served
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+// Serve static
+app.use('/api/static', express.static(PUBLIC_DIR));
+app.use(express.static(PUBLIC_DIR));
+
+// -----------------------------
+// Body parser
+// -----------------------------
+app.use(express.json());
+
+// -----------------------------
+// Global CORS for API endpoints (controlled origins)
+// -----------------------------
 const allowedOrigins = [
-  "https://quiz-app-client-bwgb.onrender.com",
+  process.env.ALLOWED_CLIENT_ORIGIN || "https://quiz-app-client-bwgb.onrender.com",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost"
@@ -37,33 +72,19 @@ app.use(
   })
 );
 
-// هدرهای عمومی برای همه درخواست‌ها
+// extra headers for all responses (API)
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://quiz-app-client-bwgb.onrender.com");
+  const origin = process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com';
+  res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.setHeader("Cache-Control", "no-store"); // جلوگیری از کش شدن فایل‌ها
+  res.setHeader("Cache-Control", "no-store");
   next();
 });
 
-/* ---------------------------
-   حل CORS برای فایل‌های استاتیک (PDF)
---------------------------- */
-app.use('/api/static', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'https://quiz-app-client-bwgb.onrender.com');
-  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  next();
-}, express.static(PUBLIC_DIR));
-
-app.use(express.static(PUBLIC_DIR));
-
-// Body parser
-app.use(express.json());
-
-/* ---------------------------
-   PostgreSQL - اتصال به دیتابیس
---------------------------- */
+// -----------------------------
+// PostgreSQL init (if DATABASE_URL is set)
+// -----------------------------
 let pool = null;
 async function initPostgres() {
   if (!process.env.DATABASE_URL) {
@@ -91,7 +112,6 @@ async function initPostgres() {
       );
     `;
     await pool.query(createTableSQL);
-
     console.log('✅ Connected to PostgreSQL and ensured submissions table exists.');
   } catch (err) {
     console.error('❌ PostgreSQL init error:', err);
@@ -99,21 +119,21 @@ async function initPostgres() {
   }
 }
 
-/* ---------------------------
-   کمکی: خواندن JSON
---------------------------- */
+// -----------------------------
+// Helper read JSON
+// -----------------------------
 async function readJSON(filePath, defaultValue = null) {
   try {
     const txt = await fs.readFile(filePath, 'utf8');
     return JSON.parse(txt);
-  } catch {
+  } catch (err) {
     return defaultValue;
   }
 }
 
-/* ---------------------------
-   middleware برای نقش‌ها
---------------------------- */
+// -----------------------------
+// authorize role middleware
+// -----------------------------
 function authorizeRole(requiredRole) {
   return (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -127,19 +147,19 @@ function authorizeRole(requiredRole) {
       }
       req.user = decoded;
       next();
-    } catch {
+    } catch (err) {
       return res.status(403).json({ error: 'توکن نامعتبر است' });
     }
   };
 }
 
-/* ---------------------------
-   لاگین ادمین
---------------------------- */
+// -----------------------------
+// Admin login
+// -----------------------------
 app.post('/api/admin/login', (req, res) => {
   const { username, password } = req.body;
-
   let role = null;
+
   if (username === process.env.SUPER_ADMIN_USERNAME && password === process.env.SUPER_ADMIN_PASSWORD) {
     role = 'SUPER_ADMIN';
   } else if (username === process.env.VIEW_ONLY_USERNAME && password === process.env.VIEW_ONLY_PASSWORD) {
@@ -152,9 +172,9 @@ app.post('/api/admin/login', (req, res) => {
   res.json({ success: true, token, role });
 });
 
-/* ---------------------------
-   گرفتن سوالات یک آزمون
---------------------------- */
+// -----------------------------
+// GET questions
+// -----------------------------
 app.get('/api/questions/:quizId', async (req, res) => {
   try {
     const quizId = req.params.quizId;
@@ -162,6 +182,7 @@ app.get('/api/questions/:quizId', async (req, res) => {
     const quiz = await readJSON(filePath, null);
 
     if (!quiz) return res.status(404).json({ error: 'quiz not found' });
+
     res.json(quiz);
   } catch (err) {
     console.error('/api/questions error:', err);
@@ -169,9 +190,9 @@ app.get('/api/questions/:quizId', async (req, res) => {
   }
 });
 
-/* ---------------------------
-   ارسال نتیجه آزمون
---------------------------- */
+// -----------------------------
+// POST submit
+// -----------------------------
 app.post('/api/submit', async (req, res) => {
   try {
     const { name, quizId, answers } = req.body;
@@ -183,32 +204,51 @@ app.post('/api/submit', async (req, res) => {
     const quizData = await readJSON(filePath, null);
 
     if (!quizData) {
+      console.error('[submit] quiz not found:', filePath);
       return res.status(404).json({ error: 'quiz not found' });
     }
 
+    // normalize questions array
     let questions = [];
     if (Array.isArray(quizData)) {
       questions = quizData;
     } else if (quizData.questions && Array.isArray(quizData.questions)) {
-      const count = quizData.count || quizData.questions.length;
-      questions = quizData.questions.slice(0, count).map((q, i) => ({
-        id: q.id ?? (i + 1),
-        question: q.question ?? `سوال شماره ${i + 1}`,
-        options: q.options ?? ['الف', 'ب', 'ج', 'د'],
-        correct: q.correct,
-      }));
+      const base = quizData.questions;
+      const count = typeof quizData.count === 'number' ? quizData.count : base.length;
+      const out = [];
+      for (let i = 0; i < count; i++) {
+        const src = base[i] || {};
+        out.push({
+          id: src.id ?? (i + 1),
+          question: src.question ?? `سوال شماره ${i + 1}`,
+          options: src.options ?? ['الف', 'ب', 'ج', 'د'],
+          correct: src.correct ?? undefined
+        });
+      }
+      questions = out;
     } else {
+      console.error('[submit] unsupported quiz format:', typeof quizData);
       return res.status(500).json({ error: 'Invalid quiz format' });
     }
 
-    let score = 0;
-    for (const q of questions) {
-      const userAns = answers[String(q.id)] ?? answers[q.id];
-      if (q.correct && userAns && String(userAns) === String(q.correct)) score++;
+    if (!Array.isArray(questions) || questions.length === 0) {
+      console.error('[submit] questions invalid or empty');
+      return res.status(500).json({ error: 'Invalid quiz questions' });
     }
 
+    // scoring
+    let score = 0;
+    for (const q of questions) {
+      const qid = String(q.id);
+      const correct = q.correct;
+      const userAns = answers[qid] ?? answers[q.id] ?? answers[Number(q.id)];
+      if (typeof correct !== 'undefined' && userAns != null && String(userAns) === String(correct)) {
+        score++;
+      }
+    }
     const total = questions.length;
 
+    // save
     if (pool) {
       const insertSQL = `
         INSERT INTO submissions(name, quiz_id, score, total, answers)
@@ -217,8 +257,12 @@ app.post('/api/submit', async (req, res) => {
       `;
       const vals = [name, quizId, score, total, JSON.stringify(answers)];
       const r = await pool.query(insertSQL, vals);
-      return res.json({ score, total, id: r.rows[0].id, time: r.rows[0].time });
+      const inserted = r.rows[0];
+      return res.json({ score, total, id: inserted.id, time: inserted.time });
     } else {
+      if (!fsSync.existsSync(DATA_DIR)) {
+        fsSync.mkdirSync(DATA_DIR, { recursive: true });
+      }
       const subsPath = path.join(DATA_DIR, 'submissions.json');
       let subs = await readJSON(subsPath, []);
       if (!Array.isArray(subs)) subs = [];
@@ -243,9 +287,9 @@ app.post('/api/submit', async (req, res) => {
   }
 });
 
-/* ---------------------------
-   گرفتن لیست نتایج
---------------------------- */
+// -----------------------------
+// GET results (with quizTitle)
+// -----------------------------
 app.get('/api/results', async (req, res) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
@@ -260,8 +304,12 @@ app.get('/api/results', async (req, res) => {
 
     const getQuizTitle = async (quizId) => {
       const filePath = path.join(DATA_DIR, `${quizId}.json`);
-      const data = await readJSON(filePath, null);
-      return data?.title || quizId;
+      try {
+        const data = await readJSON(filePath, null);
+        return data?.title || quizId;
+      } catch {
+        return quizId;
+      }
     };
 
     let results = [];
@@ -289,13 +337,14 @@ app.get('/api/results', async (req, res) => {
 
     return res.json(results);
   } catch (err) {
+    console.error('Error fetching results:', err);
     return res.status(403).json({ error: 'توکن نامعتبر یا خطا در سرور' });
   }
 });
 
-/* ---------------------------
-   نمایش جزئیات یک نتیجه خاص
---------------------------- */
+// -----------------------------
+// GET result detail
+// -----------------------------
 app.get('/api/results/:id', async (req, res) => {
   const authHeader = req.headers['authorization'];
   if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
@@ -331,14 +380,15 @@ app.get('/api/results/:id', async (req, res) => {
       const quiz = await readJSON(quizPath, []);
       return res.json({ submission, quiz });
     }
-  } catch {
+  } catch (err) {
+    console.error('Error fetching submission detail:', err);
     return res.status(403).json({ error: 'توکن نامعتبر است' });
   }
 });
 
-/* ---------------------------
-   ساخت آزمون جدید (SUPER_ADMIN)
---------------------------- */
+// -----------------------------
+// Create quiz (SUPER_ADMIN)
+// -----------------------------
 app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
   const body = req.body;
 
@@ -348,8 +398,8 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
 
   const quizId = body.quizId;
   const filePath = path.join(DATA_DIR, `${quizId}.json`);
-
   let toWrite = body.content ?? body.questions ?? body;
+
   if (Array.isArray(toWrite)) {
     toWrite = { title: body.title || quizId, questions: toWrite };
   } else if (typeof toWrite === 'object') {
@@ -360,13 +410,14 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
     await fs.writeFile(filePath, JSON.stringify(toWrite, null, 2), 'utf8');
     res.json({ success: true, message: 'آزمون با موفقیت ساخته شد' });
   } catch (err) {
+    console.error('Error creating quiz file:', err);
     res.status(500).json({ error: 'خطا در ذخیره فایل آزمون' });
   }
 });
 
-/* ---------------------------
-   لیست آزمون‌ها
---------------------------- */
+// -----------------------------
+// List quizzes
+// -----------------------------
 app.get('/api/quizzes', async (req, res) => {
   try {
     const files = await fs.readdir(DATA_DIR);
@@ -386,13 +437,14 @@ app.get('/api/quizzes', async (req, res) => {
 
     res.json(quizzes);
   } catch (err) {
+    console.error('Error reading quizzes:', err);
     res.status(500).json({ error: 'خطا در خواندن لیست آزمون‌ها' });
   }
 });
 
-/* ---------------------------
-   اطمینان از وجود پوشه data و فایل submissions.json
---------------------------- */
+// -----------------------------
+// Ensure data folder & submissions file
+// -----------------------------
 async function ensureDataFiles() {
   if (!fsSync.existsSync(DATA_DIR)) {
     fsSync.mkdirSync(DATA_DIR, { recursive: true });
@@ -403,9 +455,9 @@ async function ensureDataFiles() {
   }
 }
 
-/* ---------------------------
-   شروع برنامه
---------------------------- */
+// -----------------------------
+// Start app
+// -----------------------------
 ensureDataFiles()
   .then(() => initPostgres())
   .then(() => {
