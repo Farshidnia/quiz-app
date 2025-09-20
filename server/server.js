@@ -20,7 +20,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // -----------------------------
 
 // Ensure preflight OPTIONS for static route and add CORS headers for these responses
-app.options('/api/static/*', (req, res) => {
+app.options('/api/static', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');

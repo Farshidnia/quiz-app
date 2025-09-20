@@ -10,10 +10,9 @@ import Loading from '../components/Loading';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { X } from 'lucide-react';
+import { X, ZoomIn, ZoomOut } from 'lucide-react';
 
 // ست کردن pdf.js worker از پوشه public
-// فایل باید در مسیر client/public/pdfjs/pdf.worker.min.mjs قرار داشته باشد
 pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdfjs/pdf.worker.min.mjs`;
 
 type PdfQuizObject = {
@@ -40,6 +39,11 @@ export default function Quiz() {
 
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
+
+  // کنترل Zoom PDF
+  const [scale, setScale] = useState(1.2);
+  const handleZoomIn = () => setScale(prev => Math.min(prev + 0.2, 3));
+  const handleZoomOut = () => setScale(prev => Math.max(prev - 0.2, 0.6));
 
   const API_BASE =
     (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') ||
@@ -255,9 +259,17 @@ export default function Quiz() {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 border-b">
               <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
-              <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex gap-2 items-center">
+                <button onClick={handleZoomOut} className="p-2 hover:bg-gray-100 rounded-full">
+                  <ZoomOut className="w-5 h-5" />
+                </button>
+                <button onClick={handleZoomIn} className="p-2 hover:bg-gray-100 rounded-full">
+                  <ZoomIn className="w-5 h-5" />
+                </button>
+                <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* PDF Scrollable Area */}
@@ -272,6 +284,7 @@ export default function Quiz() {
                     <Page
                       key={`page_${pidx + 1}`}
                       pageNumber={pidx + 1}
+                      scale={scale}
                       width={Math.min(window.innerWidth - 100, 800)}
                     />
                   ))}
