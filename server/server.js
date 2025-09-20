@@ -58,19 +58,21 @@ const allowedOrigins = [
   "http://localhost"
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    methods: ["GET", "POST", "OPTIONS"],
-    credentials: true,
-  })
-);
+
+
+
+app.use(cors({
+  origin: 'https://quiz-app-client-bwgb.onrender.com',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+
+
+
+
+
 
 // extra headers for all responses (API)
 app.use((req, res, next) => {
