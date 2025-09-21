@@ -9,9 +9,9 @@ import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { X } from 'lucide-react';
 
-type PdfQuizObject = {
-  mode?: 'pdf' | string;
-  pdfUrl?: string;
+type ImageQuizObject = {
+  mode?: 'image' | string;
+  imageUrls?: string[];
   count?: number;
   questions?: Array<{ id?: number | string; correct?: string }>;
 };
@@ -28,10 +28,12 @@ export default function Quiz() {
   const [answers, setAnswers] = useState<Record<number | string, string | null>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [isPdfMode, setIsPdfMode] = useState(false);
 
-  const [showPdfModal, setShowPdfModal] = useState(false);
+  // حالت جدید برای تصاویر
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [isImageMode, setIsImageMode] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const API_BASE =
     (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') ||
@@ -54,14 +56,13 @@ export default function Quiz() {
         if (!mounted) return;
 
         if (Array.isArray(data)) {
-          // حالت عادی (سوالات داخل برنامه)
           setQuestions(data as Question[]);
-          setIsPdfMode(false);
-          setPdfUrl(null);
+          setIsImageMode(false);
+          setImageUrls([]);
         } else {
-          // حالت آزمون PDF
-          const obj = data as PdfQuizObject;
-          if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
+          const obj = data as ImageQuizObject;
+          if (obj && (obj.mode === 'image' || obj.imageUrls)) {
+            // حالت آزمون تصویری
             const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
             const baseQuestions: Question[] = [];
 
@@ -75,28 +76,22 @@ export default function Quiz() {
               } as Question & { correct?: string });
             }
 
-            // مسیر PDF
-            const raw = obj.pdfUrl ?? '';
-            let finalUrl: string | null = null;
-
-            if (raw) {
-              const rawPath = raw.startsWith('/') ? raw : `/${raw}`;
-              finalUrl = raw.startsWith('http') ? raw : `${API_BASE}${rawPath}`;
-            }
-
-            console.log('[PDF] resolved pdfUrl for iframe:', finalUrl);
+            // مسیر تصاویر
+            const fullUrls = (obj.imageUrls || []).map(img =>
+              img.startsWith('http') ? img : `${API_BASE}${img.startsWith('/') ? img : '/' + img}`
+            );
 
             setQuestions(baseQuestions);
-            setIsPdfMode(true);
-            setPdfUrl(finalUrl);
+            setIsImageMode(true);
+            setImageUrls(fullUrls);
           } else if (obj.questions && Array.isArray(obj.questions)) {
             setQuestions(obj.questions as any as Question[]);
-            setIsPdfMode(false);
-            setPdfUrl(null);
+            setIsImageMode(false);
+            setImageUrls([]);
           } else {
             setQuestions([]);
-            setIsPdfMode(false);
-            setPdfUrl(null);
+            setIsImageMode(false);
+            setImageUrls([]);
           }
         }
 
@@ -167,10 +162,10 @@ export default function Quiz() {
     <div className="space-y-4">
       <Timer seconds={totalTime} onExpire={finish} />
 
-      {isPdfMode && pdfUrl && (
+      {isImageMode && imageUrls.length > 0 && (
         <div className="flex justify-end">
           <button
-            onClick={() => setShowPdfModal(true)}
+            onClick={() => setShowImageModal(true)}
             className="btn-primary"
           >
             نمایش صورت سوال
@@ -211,36 +206,54 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* PDF Modal با iframe */}
-      {showPdfModal && (
+      {/* Image Modal */}
+      {showImageModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 border-b">
               <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
-              <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+              <button onClick={() => setShowImageModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Iframe for PDF */}
-            <div className="flex-1 overflow-hidden">
-              {pdfUrl ? (
-                <iframe
-                  src={pdfUrl}
-                  title="PDF Viewer"
-                  className="w-full h-full border-0 rounded-b-2xl"
-                  style={{ backgroundColor: '#f9fafb' }}
-                />
+            {/* Image display */}
+            <div className="flex-1 flex flex-col items-center justify-center overflow-auto p-4">
+              {imageUrls.length > 0 ? (
+                <>
+                  <img
+                    src={imageUrls[currentImageIndex]}
+                    alt={`صفحه ${currentImageIndex + 1}`}
+                    className="max-w-full max-h-[80vh] rounded shadow object-contain"
+                  />
+                  <div className="mt-4 flex justify-center gap-4">
+                    <button
+                      onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}
+                      className="btn-ghost"
+                      disabled={currentImageIndex === 0}
+                    >
+                      قبلی
+                    </button>
+                    <span>{currentImageIndex + 1} / {imageUrls.length}</span>
+                    <button
+                      onClick={() => setCurrentImageIndex(i => Math.min(imageUrls.length - 1, i + 1))}
+                      className="btn-ghost"
+                      disabled={currentImageIndex === imageUrls.length - 1}
+                    >
+                      بعدی
+                    </button>
+                  </div>
+                </>
               ) : (
-                <div className="text-center py-6">آدرس فایل PDF نامشخص است.</div>
+                <div className="text-center">هیچ تصویری برای نمایش موجود نیست.</div>
               )}
             </div>
 
             {/* Footer */}
             <div className="p-2 border-t flex justify-end">
               <button
-                onClick={() => setShowPdfModal(false)}
+                onClick={() => setShowImageModal(false)}
                 className="btn-primary"
               >
                 بستن

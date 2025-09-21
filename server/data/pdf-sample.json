@@ -1,7 +1,12 @@
 {
-  "mode": "pdf",
+  "mode": "image",
   "title": "آزمون تصویری",
-  "pdfUrl": "/api/static/quizzes/pdf-sample.pdf",
+  "imageUrls": [
+    "/api/static/quizzes/page1.jpg",
+    "/api/static/quizzes/page2.jpg",
+    "/api/static/quizzes/page3.jpg",
+    "/api/static/quizzes/page4.jpg"
+  ],
   "count": 20,
   "questions": [
     { "id": 1, "correct": "الف" },
