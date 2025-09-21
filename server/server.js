@@ -421,4 +421,46 @@ app.get('/api/quizzes', async (req, res) => {
     const quizzes = [];
     for (const file of jsonFiles) {
       const filePath = path.join(DATA_DIR, file);
-      const data
+      const data = await readJSON(filePath, null);
+      if (data) {
+        quizzes.push({
+          id: path.basename(file, '.json'),
+          title: data.title || path.basename(file, '.json')
+        });
+      }
+    }
+
+    res.json(quizzes);
+  } catch (err) {
+    console.error('Error reading quizzes:', err);
+    res.status(500).json({ error: 'خطا در خواندن لیست آزمون‌ها' });
+  }
+});
+
+// -----------------------------
+// Ensure data folder & submissions file
+// -----------------------------
+async function ensureDataFiles() {
+  if (!fsSync.existsSync(DATA_DIR)) {
+    fsSync.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  const subsPath = path.join(DATA_DIR, 'submissions.json');
+  if (!fsSync.existsSync(subsPath)) {
+    await fs.writeFile(subsPath, '[]', 'utf8');
+  }
+}
+
+// -----------------------------
+// Start app
+// -----------------------------
+ensureDataFiles()
+  .then(() => initPostgres())
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Startup error:', err);
+    process.exit(1);
+  });
