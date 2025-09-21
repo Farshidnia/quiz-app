@@ -126,6 +126,7 @@ export default function Quiz() {
             setQuestions(baseQuestions);
             setIsPdfMode(true);
             setPdfUrl(finalUrl);
+            console.log('Final PDF URL for Document:', finalUrl);
           } else if (obj.questions && Array.isArray(obj.questions)) {
             setQuestions(obj.questions as any as Question[]);
             setIsPdfMode(false);
@@ -276,7 +277,7 @@ export default function Quiz() {
             <div className="flex-1 overflow-y-auto p-4">
               {pdfUrl ? (
                 <Document
-  file={pdfUrl}
+  file={{ url: pdfUrl }}
   onLoadSuccess={onDocumentLoadSuccess}
   loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
 >
