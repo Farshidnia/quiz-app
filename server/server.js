@@ -1,4 +1,4 @@
-// server.js - نسخهٔ نهایی با تنظیمات CORS و سرو استاتیک دقیق
+// server.js - نسخهٔ نهایی با تنظیمات CORS و سرو استاتیک دقیق و رفع خطای ORB
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -27,15 +27,17 @@ app.options('/api/static', (req, res) => {
   return res.sendStatus(204);
 });
 
-// For any request to /api/static, attach CORS headers so PDF requests from client won't be blocked
+// For any request to /api/static, attach CORS headers so PDF/image requests from client won't be blocked
 app.use('/api/static', (req, res, next) => {
-  // allow the configured client origin (or fallback)
   const origin = process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com';
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  // Avoid caching static assets to ensure latest uploaded PDFs are served
   res.setHeader('Cache-Control', 'no-store');
+
+  // مهم برای رفع خطای ORB هنگام لود تصاویر در مرورگر
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+
   next();
 });
 
@@ -58,21 +60,12 @@ const allowedOrigins = [
   "http://localhost"
 ];
 
-
-
-
 app.use(cors({
   origin: 'https://quiz-app-client-bwgb.onrender.com',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
-
-
-
-
-
-
 
 // extra headers for all responses (API)
 app.use((req, res, next) => {
@@ -428,46 +421,4 @@ app.get('/api/quizzes', async (req, res) => {
     const quizzes = [];
     for (const file of jsonFiles) {
       const filePath = path.join(DATA_DIR, file);
-      const data = await readJSON(filePath, null);
-      if (data) {
-        quizzes.push({
-          id: path.basename(file, '.json'),
-          title: data.title || path.basename(file, '.json')
-        });
-      }
-    }
-
-    res.json(quizzes);
-  } catch (err) {
-    console.error('Error reading quizzes:', err);
-    res.status(500).json({ error: 'خطا در خواندن لیست آزمون‌ها' });
-  }
-});
-
-// -----------------------------
-// Ensure data folder & submissions file
-// -----------------------------
-async function ensureDataFiles() {
-  if (!fsSync.existsSync(DATA_DIR)) {
-    fsSync.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  const subsPath = path.join(DATA_DIR, 'submissions.json');
-  if (!fsSync.existsSync(subsPath)) {
-    await fs.writeFile(subsPath, '[]', 'utf8');
-  }
-}
-
-// -----------------------------
-// Start app
-// -----------------------------
-ensureDataFiles()
-  .then(() => initPostgres())
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server running at http://localhost:${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error('Startup error:', err);
-    process.exit(1);
-  });
+      const data

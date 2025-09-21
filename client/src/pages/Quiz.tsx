@@ -9,12 +9,13 @@ import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { X } from 'lucide-react';
 
-type ImageQuizObject = {
+// نوع داده برای آزمون تصویری
+interface ImageQuizObject {
   mode?: 'image' | string;
   imageUrls?: string[];
   count?: number;
   questions?: Array<{ id?: number | string; correct?: string }>;
-};
+}
 
 export default function Quiz() {
   const [searchParams] = useSearchParams();
@@ -29,18 +30,19 @@ export default function Quiz() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
 
-  // حالت جدید برای تصاویر
+  // حالت آزمون تصویری
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isImageMode, setIsImageMode] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  // آدرس پایه سرور
   const API_BASE =
     (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') ||
     'https://quiz-app-server-3pa9.onrender.com';
 
   // -------------------------------
-  // Load Quiz Data
+  // بارگذاری اطلاعات آزمون
   // -------------------------------
   useEffect(() => {
     if (!name) {
@@ -61,6 +63,7 @@ export default function Quiz() {
           setImageUrls([]);
         } else {
           const obj = data as ImageQuizObject;
+
           if (obj && (obj.mode === 'image' || obj.imageUrls)) {
             // حالت آزمون تصویری
             const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
@@ -76,7 +79,7 @@ export default function Quiz() {
               } as Question & { correct?: string });
             }
 
-            // مسیر تصاویر
+            // ساخت آدرس کامل تصاویر
             const fullUrls = (obj.imageUrls || []).map(img =>
               img.startsWith('http') ? img : `${API_BASE}${img.startsWith('/') ? img : '/' + img}`
             );
@@ -109,14 +112,17 @@ export default function Quiz() {
     };
   }, [quizId, name, navigate, API_BASE]);
 
+  // زمان کل آزمون
   const totalTime = useMemo(() => Math.max(60, questions.length * 60), [questions]);
 
+  // انتخاب جواب
   function selectAnswer(val: string) {
     const q = questions[index];
     if (!q) return;
     setAnswers(prev => ({ ...prev, [q.id]: val }));
   }
 
+  // پایان آزمون
   async function finish() {
     setSubmitting(true);
     try {
@@ -162,6 +168,7 @@ export default function Quiz() {
     <div className="space-y-4">
       <Timer seconds={totalTime} onExpire={finish} />
 
+      {/* دکمه نمایش صورت سوالات */}
       {isImageMode && imageUrls.length > 0 && (
         <div className="flex justify-end">
           <button
@@ -173,6 +180,7 @@ export default function Quiz() {
         </div>
       )}
 
+      {/* نمایش کارت سوال */}
       <AnimatePresence>
         {q && (
           <QuestionCard
@@ -184,6 +192,7 @@ export default function Quiz() {
         )}
       </AnimatePresence>
 
+      {/* دکمه‌های ناوبری */}
       <div className="flex items-center justify-between mt-4">
         <div className="text-sm text-muted">{index + 1} از {questions.length}</div>
 
@@ -206,7 +215,7 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* Image Modal */}
+      {/* مودال نمایش تصاویر */}
       {showImageModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col">
@@ -218,7 +227,7 @@ export default function Quiz() {
               </button>
             </div>
 
-            {/* Image display */}
+            {/* نمایش تصویر */}
             <div className="flex-1 flex flex-col items-center justify-center overflow-auto p-4">
               {imageUrls.length > 0 ? (
                 <>
@@ -226,6 +235,8 @@ export default function Quiz() {
                     src={imageUrls[currentImageIndex]}
                     alt={`صفحه ${currentImageIndex + 1}`}
                     className="max-w-full max-h-[80vh] rounded shadow object-contain"
+                    crossOrigin="anonymous"
+                    onError={(e) => (e.currentTarget.src = '/fallback-image.png')}
                   />
                   <div className="mt-4 flex justify-center gap-4">
                     <button
