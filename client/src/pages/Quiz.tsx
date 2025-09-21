@@ -125,8 +125,8 @@ export default function Quiz() {
             console.log('[PDF] resolved pdfUrl:', finalUrl, ' raw:', raw);
             setQuestions(baseQuestions);
             setIsPdfMode(true);
-            setPdfUrl(finalUrl);
             console.log('Final PDF URL for Document:', finalUrl);
+            setPdfUrl(finalUrl);
           } else if (obj.questions && Array.isArray(obj.questions)) {
             setQuestions(obj.questions as any as Question[]);
             setIsPdfMode(false);
