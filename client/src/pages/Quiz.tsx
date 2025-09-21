@@ -276,19 +276,20 @@ export default function Quiz() {
             <div className="flex-1 overflow-y-auto p-4">
               {pdfUrl ? (
                 <Document
-                  file="https://quiz-app-server-3pa9.onrender.com/api/static/quizzes/pdf-sample.pdf"
-                  onLoadSuccess={onDocumentLoadSuccess}
-                  loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
-                >
-                  {Array.from(new Array(numPages ?? 0), (el, pidx) => (
-                    <Page
-                      key={`page_${pidx + 1}`}
-                      pageNumber={pidx + 1}
-                      scale={scale}
-                      width={Math.min(window.innerWidth - 100, 800)}
-                    />
-                  ))}
-                </Document>
+  file={pdfUrl}
+  onLoadSuccess={onDocumentLoadSuccess}
+  loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
+>
+  {Array.from(new Array(numPages ?? 0), (el, pidx) => (
+    <Page
+      key={`page_${pidx + 1}`}
+      pageNumber={pidx + 1}
+      scale={scale}
+      width={Math.min(window.innerWidth - 100, 800)}
+    />
+  ))}
+</Document>
+
               ) : (
                 <div className="text-center py-6">آدرس فایل PDF نامشخص است.</div>
               )}
