@@ -7,13 +7,7 @@ import QuestionCard from '../components/QuestionCard';
 import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
-import { X, ZoomIn, ZoomOut } from 'lucide-react';
-
-// ست کردن pdf.js worker از پوشه public
-pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdfjs/pdf.worker.min.mjs`;
+import { X } from 'lucide-react';
 
 type PdfQuizObject = {
   mode?: 'pdf' | string;
@@ -38,17 +32,14 @@ export default function Quiz() {
   const [isPdfMode, setIsPdfMode] = useState(false);
 
   const [showPdfModal, setShowPdfModal] = useState(false);
-  const [numPages, setNumPages] = useState<number | null>(null);
-
-  // کنترل Zoom PDF
-  const [scale, setScale] = useState(1.2);
-  const handleZoomIn = () => setScale(prev => Math.min(prev + 0.2, 3));
-  const handleZoomOut = () => setScale(prev => Math.max(prev - 0.2, 0.6));
 
   const API_BASE =
     (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '') ||
     'https://quiz-app-server-3pa9.onrender.com';
 
+  // -------------------------------
+  // Load Quiz Data
+  // -------------------------------
   useEffect(() => {
     if (!name) {
       navigate('/');
@@ -63,10 +54,12 @@ export default function Quiz() {
         if (!mounted) return;
 
         if (Array.isArray(data)) {
+          // حالت عادی (سوالات داخل برنامه)
           setQuestions(data as Question[]);
           setIsPdfMode(false);
           setPdfUrl(null);
         } else {
+          // حالت آزمون PDF
           const obj = data as PdfQuizObject;
           if (obj && (obj.mode === 'pdf' || obj.pdfUrl)) {
             const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
@@ -88,44 +81,13 @@ export default function Quiz() {
 
             if (raw) {
               const rawPath = raw.startsWith('/') ? raw : `/${raw}`;
-
-              const candidates = [
-                raw.startsWith('http') ? raw : null,
-                `${API_BASE}${rawPath}`,
-                `${API_BASE}/api/static${rawPath}`,
-                `${window.location.origin}${rawPath}`,
-                raw
-              ].filter(Boolean) as string[];
-
-              console.log('[PDF] candidates to try:', candidates);
-
-              for (const u of candidates) {
-                try {
-                  const head = await fetch(u, { method: 'HEAD' });
-                  if (head.ok) {
-                    finalUrl = u;
-                    break;
-                  }
-                } catch {
-                  try {
-                    const get = await fetch(u, { method: 'GET' });
-                    if (get.ok) {
-                      finalUrl = u;
-                      break;
-                    }
-                  } catch {}
-                }
-              }
-
-              if (!finalUrl) {
-                finalUrl = `${API_BASE}${rawPath}`;
-              }
+              finalUrl = raw.startsWith('http') ? raw : `${API_BASE}${rawPath}`;
             }
 
-            console.log('[PDF] resolved pdfUrl:', finalUrl, ' raw:', raw);
+            console.log('[PDF] resolved pdfUrl for iframe:', finalUrl);
+
             setQuestions(baseQuestions);
             setIsPdfMode(true);
-            console.log('Final PDF URL for Document:', finalUrl);
             setPdfUrl(finalUrl);
           } else if (obj.questions && Array.isArray(obj.questions)) {
             setQuestions(obj.questions as any as Question[]);
@@ -172,10 +134,6 @@ export default function Quiz() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
-    setNumPages(numPages);
   }
 
   if (loading) return <div className="mt-12"><Loading /></div>;
@@ -253,44 +211,27 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* PDF Modal */}
+      {/* PDF Modal با iframe */}
       {showPdfModal && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 border-b">
               <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
-              <div className="flex gap-2 items-center">
-                <button onClick={handleZoomOut} className="p-2 hover:bg-gray-100 rounded-full">
-                  <ZoomOut className="w-5 h-5" />
-                </button>
-                <button onClick={handleZoomIn} className="p-2 hover:bg-gray-100 rounded-full">
-                  <ZoomIn className="w-5 h-5" />
-                </button>
-                <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              <button onClick={() => setShowPdfModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
-            {/* PDF Scrollable Area */}
-            <div className="flex-1 overflow-y-auto p-4">
+            {/* Iframe for PDF */}
+            <div className="flex-1 overflow-hidden">
               {pdfUrl ? (
-                <Document
-  file={{ url: pdfUrl }}
-  onLoadSuccess={onDocumentLoadSuccess}
-  loading={<div className="text-center py-4">در حال بارگذاری PDF...</div>}
->
-  {Array.from(new Array(numPages ?? 0), (el, pidx) => (
-    <Page
-      key={`page_${pidx + 1}`}
-      pageNumber={pidx + 1}
-      scale={scale}
-      width={Math.min(window.innerWidth - 100, 800)}
-    />
-  ))}
-</Document>
-
+                <iframe
+                  src={pdfUrl}
+                  title="PDF Viewer"
+                  className="w-full h-full border-0 rounded-b-2xl"
+                  style={{ backgroundColor: '#f9fafb' }}
+                />
               ) : (
                 <div className="text-center py-6">آدرس فایل PDF نامشخص است.</div>
               )}
