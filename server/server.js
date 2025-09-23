@@ -1,4 +1,4 @@
-// server.js - نسخهٔ نهایی با پشتیبانی کامل از تصاویر و CORS
+// server.js - نسخهٔ نهایی با تنظیمات CORS و سرو استاتیک دقیق و رفع خطای ORB
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -14,11 +14,12 @@ const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // -----------------------------
-// Static files - سرو کردن فایل‌های استاتیک (تصاویر و ...)
-//
+// Static files
+// expose /api/static/* -> PUBLIC_DIR
+// also expose root static for other assets
 // -----------------------------
 
-// Preflight OPTIONS برای مسیر /api/static
+// Ensure preflight OPTIONS for static route and add CORS headers for these responses
 app.options('/api/static', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -26,24 +27,21 @@ app.options('/api/static', (req, res) => {
   return res.sendStatus(204);
 });
 
-// هندل کردن درخواست‌های استاتیک
+// For any request to /api/static, attach CORS headers so PDF/image requests from client won't be blocked
 app.use('/api/static', (req, res, next) => {
   const origin = process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com';
-
-  // هدرهای لازم برای نمایش تصاویر بدون بلاک شدن
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Cache-Control', 'no-store');
 
-  // مهم برای نمایش تصاویر بدون ERR_BLOCKED_BY_ORB
+  // مهم برای رفع خطای ORB هنگام لود تصاویر در مرورگر
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
 
   next();
 });
 
-// سرو فایل‌های استاتیک
+// Serve static
 app.use('/api/static', express.static(PUBLIC_DIR));
 app.use(express.static(PUBLIC_DIR));
 
@@ -53,7 +51,7 @@ app.use(express.static(PUBLIC_DIR));
 app.use(express.json());
 
 // -----------------------------
-// Global CORS برای API
+// Global CORS for API endpoints (controlled origins)
 // -----------------------------
 const allowedOrigins = [
   process.env.ALLOWED_CLIENT_ORIGIN || "https://quiz-app-client-bwgb.onrender.com",
@@ -63,29 +61,24 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: 'https://quiz-app-client-bwgb.onrender.com',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
 
-// اضافه کردن هدرهای عمومی برای تمام ریکوئست‌ها
+// extra headers for all responses (API)
 app.use((req, res, next) => {
   const origin = process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com';
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Cache-Control", "no-store");
-
-  // هدرهای امنیتی برای نمایش تصاویر
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
-
   next();
 });
 
 // -----------------------------
-// PostgreSQL init
+// PostgreSQL init (if DATABASE_URL is set)
 // -----------------------------
 let pool = null;
 async function initPostgres() {
@@ -210,7 +203,7 @@ app.post('/api/submit', async (req, res) => {
       return res.status(404).json({ error: 'quiz not found' });
     }
 
-    // normalize questions
+    // normalize questions array
     let questions = [];
     if (Array.isArray(quizData)) {
       questions = quizData;
@@ -290,7 +283,7 @@ app.post('/api/submit', async (req, res) => {
 });
 
 // -----------------------------
-// GET results
+// GET results (with quizTitle)
 // -----------------------------
 app.get('/api/results', async (req, res) => {
   const authHeader = req.headers['authorization'];
@@ -345,7 +338,107 @@ app.get('/api/results', async (req, res) => {
 });
 
 // -----------------------------
-// Start app
+// GET result detail
+// -----------------------------
+app.get('/api/results/:id', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'توکن وارد نشده است' });
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!['SUPER_ADMIN', 'VIEW_ONLY'].includes(decoded.role)) {
+      return res.status(403).json({ error: 'دسترسی غیرمجاز' });
+    }
+
+    if (pool) {
+      const idParam = req.params.id;
+      const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, time FROM submissions WHERE id = $1 LIMIT 1;`;
+      const r = await pool.query(q, [idParam]);
+      if (r.rowCount === 0) return res.status(404).json({ error: 'submission not found' });
+
+      const submission = {
+        ...r.rows[0],
+        time: r.rows[0].time instanceof Date ? r.rows[0].time.toISOString() : r.rows[0].time
+      };
+
+      const quizPath = path.join(DATA_DIR, `${submission.quizId}.json`);
+      const quiz = await readJSON(quizPath, []);
+      return res.json({ submission, quiz });
+    } else {
+      const subsPath = path.join(DATA_DIR, 'submissions.json');
+      const submissions = await readJSON(subsPath, []);
+      const submission = submissions.find(s => String(s.id) === req.params.id);
+      if (!submission) return res.status(404).json({ error: 'submission not found' });
+
+      const quizPath = path.join(DATA_DIR, `${submission.quizId}.json`);
+      const quiz = await readJSON(quizPath, []);
+      return res.json({ submission, quiz });
+    }
+  } catch (err) {
+    console.error('Error fetching submission detail:', err);
+    return res.status(403).json({ error: 'توکن نامعتبر است' });
+  }
+});
+
+// -----------------------------
+// Create quiz (SUPER_ADMIN)
+// -----------------------------
+app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
+  const body = req.body;
+
+  if (!body || !body.quizId) {
+    return res.status(400).json({ error: 'اطلاعات آزمون معتبر نیست (نیاز به quizId)' });
+  }
+
+  const quizId = body.quizId;
+  const filePath = path.join(DATA_DIR, `${quizId}.json`);
+  let toWrite = body.content ?? body.questions ?? body;
+
+  if (Array.isArray(toWrite)) {
+    toWrite = { title: body.title || quizId, questions: toWrite };
+  } else if (typeof toWrite === 'object') {
+    if (!toWrite.title) toWrite.title = body.title || quizId;
+  }
+
+  try {
+    await fs.writeFile(filePath, JSON.stringify(toWrite, null, 2), 'utf8');
+    res.json({ success: true, message: 'آزمون با موفقیت ساخته شد' });
+  } catch (err) {
+    console.error('Error creating quiz file:', err);
+    res.status(500).json({ error: 'خطا در ذخیره فایل آزمون' });
+  }
+});
+
+// -----------------------------
+// List quizzes
+// -----------------------------
+app.get('/api/quizzes', async (req, res) => {
+  try {
+    const files = await fs.readdir(DATA_DIR);
+    const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'submissions.json');
+
+    const quizzes = [];
+    for (const file of jsonFiles) {
+      const filePath = path.join(DATA_DIR, file);
+      const data = await readJSON(filePath, null);
+      if (data) {
+        quizzes.push({
+          id: path.basename(file, '.json'),
+          title: data.title || path.basename(file, '.json')
+        });
+      }
+    }
+
+    res.json(quizzes);
+  } catch (err) {
+    console.error('Error reading quizzes:', err);
+    res.status(500).json({ error: 'خطا در خواندن لیست آزمون‌ها' });
+  }
+});
+
+// -----------------------------
+// Ensure data folder & submissions file
 // -----------------------------
 async function ensureDataFiles() {
   if (!fsSync.existsSync(DATA_DIR)) {
@@ -357,6 +450,9 @@ async function ensureDataFiles() {
   }
 }
 
+// -----------------------------
+// Start app
+// -----------------------------
 ensureDataFiles()
   .then(() => initPostgres())
   .then(() => {
