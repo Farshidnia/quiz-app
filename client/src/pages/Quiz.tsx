@@ -236,7 +236,6 @@ export default function Quiz() {
                     alt={`صفحه ${currentImageIndex + 1}`}
                     className="max-w-full max-h-[80vh] rounded shadow object-contain"
                     crossOrigin="anonymous"
-                    onError={(e) => (e.currentTarget.src = '/fallback-image.png')}
                   />
                   <div className="mt-4 flex justify-center gap-4">
                     <button
