@@ -8,6 +8,9 @@ import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { X } from 'lucide-react';
+// @ts-ignore
+import Zoom from 'react-medium-image-zoom'
+import 'react-medium-image-zoom/dist/styles.css'
 
 // نوع داده برای آزمون تصویری
 interface ImageQuizObject {
@@ -231,12 +234,14 @@ export default function Quiz() {
             <div className="flex-1 flex flex-col items-center justify-center overflow-auto p-4">
               {imageUrls.length > 0 ? (
                 <>
-                  <img
+                  <Zoom>
+    <img
                     src={imageUrls[currentImageIndex]}
                     alt={`صفحه ${currentImageIndex + 1}`}
                     className="max-w-full max-h-[80vh] rounded shadow object-contain"
                     crossOrigin="anonymous"
                   />
+  </Zoom>
                   <div className="mt-4 flex justify-center gap-4">
                     <button
                       onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}
