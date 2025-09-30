@@ -60,8 +60,9 @@ const allowedOrigins = [
   "http://localhost"
 ];
 
+const ALLOWED_CLIENT_ORIGIN = process.env.ALLOWED_CLIENT_ORIGIN || '*';
 app.use(cors({
-  origin: 'https://quiz-app-client-bwgb.onrender.com',
+  origin: ALLOWED_CLIENT_ORIGIN,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -69,7 +70,7 @@ app.use(cors({
 
 // extra headers for all responses (API)
 app.use((req, res, next) => {
-  const origin = process.env.ALLOWED_CLIENT_ORIGIN || 'https://quiz-app-client-bwgb.onrender.com';
+  const origin = process.env.ALLOWED_CLIENT_ORIGIN || '*';
   res.setHeader("Access-Control-Allow-Origin", origin);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -415,7 +416,11 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
 // -----------------------------
 app.get('/api/quizzes', async (req, res) => {
   try {
-    const files = await fs.readdir(DATA_DIR);
+    let files = [];
+    try { files = await fs.readdir(DATA_DIR); } catch (e) { files = []; }
+    if (!files || files.length === 0) {
+      try { files = await fs.readdir(__dirname); } catch (e) { files = []; }
+    }
     const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'submissions.json');
 
     const quizzes = [];
