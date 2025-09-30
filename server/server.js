@@ -301,7 +301,7 @@ app.get('/api/results', async (req, res) => {
     const getQuizTitle = async (quizId) => {
       const filePath = path.join(DATA_DIR, `${quizId}.json`);
       try {
-        const data = await readJSON(filePath, null);
+        const data = await readJSON(filePath, null).catch(err => { console.error('Error parsing quiz file', filePath, err); return null; });
         return data?.title || quizId;
       } catch {
         return quizId;
@@ -417,17 +417,20 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
 app.get('/api/quizzes', async (req, res) => {
   try {
     let files = [];
-    try { files = await fs.readdir(DATA_DIR); } catch (e) { files = []; }
+    console.log('Reading quizzes from DATA_DIR:', DATA_DIR);
+    try { files = await fs.readdir(DATA_DIR); } catch (e) { console.error('Error reading DATA_DIR:', e); files = []; }
+    console.log('Files found in DATA_DIR:', files);
     if (!files || files.length === 0) {
-      try { files = await fs.readdir(__dirname); } catch (e) { files = []; }
+      try { files = await fs.readdir(__dirname); console.log('Fallback __dirname files:', files);} catch (e) { console.error('Error reading __dirname:', e); files = []; }
     }
     const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'submissions.json');
 
     const quizzes = [];
     for (const file of jsonFiles) {
       const filePath = path.join(DATA_DIR, file);
-      const data = await readJSON(filePath, null);
+      const data = await readJSON(filePath, null).catch(err => { console.error('Error parsing quiz file', filePath, err); return null; });
       if (data) {
+        console.log('Loaded quiz file:', file, 'title:', data?.title);
         quizzes.push({
           id: path.basename(file, '.json'),
           title: data.title || path.basename(file, '.json')
