@@ -2,10 +2,10 @@
   "mode": "image",
   "title": "آزمون تصویری",
   "imageUrls": [
-    "/api/static/quizzes/page1.jpg",
-    "/api/static/quizzes/page2.jpg",
-    "/api/static/quizzes/page3.jpg",
-    "/api/static/quizzes/page4.jpg"
+    "/api/static/quizzes/p1.jpg",
+    "/api/static/quizzes/p2.jpg",
+    "/api/static/quizzes/p3.jpg",
+    "/api/static/quizzes/p4.jpg"
   ],
   "count": 20,
   "questions": [
