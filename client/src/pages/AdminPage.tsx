@@ -268,7 +268,7 @@ export default function AdminPage() {
                         </td>
                         <td className="px-4 py-2 text-center">{r.quizTitle}</td>
                         <td className="px-4 py-2 text-center">{r.name}</td>
-                        <td className="px-4 py-2 text-center">{r.score}/{r.total}</td>
+                        <td className="px-4 py-2 text-center">{ Math.round((r.score / Math.max(1, r.total)) * 100) + '%'}</td>
                         <td className="px-4 py-2 text-center">
                           <button
                             onClick={() => handleOpenModal(r)}

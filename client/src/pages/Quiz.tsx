@@ -8,9 +8,6 @@ import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { X } from 'lucide-react';
-// @ts-ignore
-import Zoom from 'react-medium-image-zoom'
-import 'react-medium-image-zoom/dist/styles.css'
 
 // نوع داده برای آزمون تصویری
 interface ImageQuizObject {
@@ -154,11 +151,14 @@ export default function Quiz() {
   }
 
   if (result) {
+    const percent = Math.round((result.score / Math.max(1, result.total)) * 100);
+    const message = `از شرکت در آزمون متشکریم. برای مشاوره تماس بگیرید: 021-12345678`; // نمونه متن - قابل ویرایش
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
         <h3 className="text-2xl font-semibold mb-2">نتیجه شما</h3>
-        <div className="text-4xl font-bold text-brand-500">{result.score} / {result.total}</div>
-        <div className="mt-4">
+        <div className="text-6xl font-extrabold text-brand-500">{percent}%</div>
+        <div className="mt-4 text-sm text-muted">{message}</div>
+        <div className="mt-6">
           <button onClick={() => navigate('/')} className="btn-primary">بازگشت به صفحه اصلی</button>
         </div>
       </motion.div>
@@ -234,14 +234,12 @@ export default function Quiz() {
             <div className="flex-1 flex flex-col items-center justify-center overflow-auto p-4">
               {imageUrls.length > 0 ? (
                 <>
-                  <Zoom>
-    <img
+                  <img
                     src={imageUrls[currentImageIndex]}
                     alt={`صفحه ${currentImageIndex + 1}`}
                     className="max-w-full max-h-[80vh] rounded shadow object-contain"
                     crossOrigin="anonymous"
                   />
-  </Zoom>
                   <div className="mt-4 flex justify-center gap-4">
                     <button
                       onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}

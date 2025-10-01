@@ -12,6 +12,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+// helper to add percent field to submissions
+function addPercent(subs) {
+  try {
+    return subs.map(s => {
+      if (s && typeof s.score === 'number' && typeof s.total === 'number') {
+        return { ...s, percent: Math.round((s.score / Math.max(1, s.total)) * 100) };
+      }
+      return s;
+    });
+  } catch (e) {
+    return subs;
+  }
+}
+
 
 // -----------------------------
 // Static files
@@ -42,8 +56,8 @@ app.use('/api/static', (req, res, next) => {
 });
 
 // Serve static
-app.use('/api/static', (req,res,next)=>{console.log('[STATIC:/api/static]', req.url); next();}, express.static(PUBLIC_DIR));
-app.use((req,res,next)=>{console.log('[STATIC:/]', req.url); next();}, express.static(PUBLIC_DIR));
+app.use('/api/static', express.static(PUBLIC_DIR));
+app.use(express.static(PUBLIC_DIR));
 
 // -----------------------------
 // Body parser
