@@ -80,7 +80,7 @@ export default function SubmissionModal({
           <div className="flex items-center gap-3">
             <div className="text-sm">نمره:</div>
             <div className="px-3 py-1 rounded bg-indigo-50 text-indigo-700 font-semibold">
-              {sub.score}/{sub.total}
+              {((sub.score / Math.max(1, sub.total)) * 100).toFixed(2)}%
             </div>
             <button className="btn-ghost" onClick={onClose}>بستن</button>
           </div>

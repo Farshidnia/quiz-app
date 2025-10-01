@@ -10,7 +10,7 @@ export default function Timer({seconds, onExpire}:{seconds:number, onExpire:()=>
       return s - 1;
     }), 1000);
     return ()=> clearInterval(t);
-  }, [seconds, onExpire]);
+  }, []);
 
   const m = Math.floor(left/60);
   const s = left % 60;

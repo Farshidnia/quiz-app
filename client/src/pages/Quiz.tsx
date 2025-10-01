@@ -28,6 +28,7 @@ export default function Quiz() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number | string, string | null>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [timeUp, setTimeUp] = useState(false);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
 
   // حالت آزمون تصویری
@@ -150,8 +151,22 @@ export default function Quiz() {
     );
   }
 
+  if (timeUp) {
+    const correctCount = Object.entries(answers).filter(([id, val]) => val !== null).length;
+    const percent = ((correctCount / Math.max(1, questions.length)) * 100).toFixed(2);
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
+        <h3 className="text-2xl font-semibold mb-2 text-red-600">با عرض پوزش، زمان آزمون به پایان رسید.</h3>
+        <div className="text-5xl font-bold text-brand-500 mt-2">{percent}%</div>
+        <div className="mt-6">
+          <button onClick={() => navigate('/')} className="btn-primary">بازگشت به صفحه اصلی</button>
+        </div>
+      </motion.div>
+    );
+  }
+
   if (result) {
-    const percent = Math.round((result.score / Math.max(1, result.total)) * 100);
+    const percent = ((result.score / Math.max(1, result.total)) * 100).toFixed(2);
     const message = `از شرکت در آزمون متشکریم. برای مشاوره تماس بگیرید: 021-12345678`; // نمونه متن - قابل ویرایش
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
@@ -169,7 +184,7 @@ export default function Quiz() {
 
   return (
     <div className="space-y-4">
-      <Timer seconds={totalTime} onExpire={finish} />
+      <Timer seconds={totalTime} onExpire={() => setTimeUp(true)} />
 
       {/* دکمه نمایش صورت سوالات */}
       {isImageMode && imageUrls.length > 0 && (
