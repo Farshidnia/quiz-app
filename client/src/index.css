@@ -139,3 +139,17 @@ html, body, #root {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px rgba(118, 75, 162, 0.4);
 }
+
+/* بهبود نمایش در موبایل */
+@media (max-width: 640px) {
+  table {
+    font-size: 0.8rem !important;
+  }
+  th, td {
+    padding: 0.4rem 0.3rem !important;
+  }
+  .btn, .btn-primary, .btn-ghost, .btn-table {
+    font-size: 0.85rem !important;
+    padding: 0.4rem 0.8rem !important;
+  }
+}
