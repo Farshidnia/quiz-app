@@ -9,6 +9,7 @@ import type { Question } from '../components/QuestionCard';
 type Submission = {
   id: number;
   name: string;
+  phone?: string; // ✅ اضافه کن این خطو
   quizId: string;
   quizTitle: string; // ✅ اضافه شد برای نمایش اسم آزمون
   score: number;
@@ -246,11 +247,11 @@ export default function AdminPage() {
           </div>
 
           {/* جدول نتایج */}
-          <div className="mt-4 overflow-x-auto w-full">
+          <div className="w-full overflow-x-auto mt-8">
             {loading ? (
               <Loading />
             ) : (
-                <table className="min-w-full text-sm text-center align-middle border-collapse">
+                <table className="min-w-[600px] w-full text-sm">
                   <thead>
                     <tr className="bg-gray-100">
                       <th className="px-4 py-2 text-center">زمان</th>
