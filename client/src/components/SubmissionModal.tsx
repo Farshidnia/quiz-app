@@ -19,6 +19,7 @@ type Submission = {
   total: number;
   answers: Record<string, any>;
   time: string;
+  phone?: string; // ✅ اضافه شد برای رفع خطا
 };
 
 export default function SubmissionModal({
