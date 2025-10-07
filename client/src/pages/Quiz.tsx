@@ -21,6 +21,8 @@ export default function Quiz() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const name = searchParams.get('name') ?? '';
+  const phone = searchParams.get('phone') ?? ''; // ✅ added phone support
+
   const quizId = searchParams.get('quiz') ?? 'default';
 
   const [loading, setLoading] = useState(true);
@@ -127,7 +129,7 @@ export default function Quiz() {
   async function finish() {
     setSubmitting(true);
     try {
-      const payload = { name, quizId, answers };
+      const payload = { name, phone, quizId, answers }; // ✅ include phone in payload
       const { data } = await api.post('/api/submit', payload);
       setResult({ score: data.score, total: data.total });
     } catch (err) {
@@ -156,7 +158,7 @@ export default function Quiz() {
     const percent = ((correctCount / Math.max(1, questions.length)) * 100).toFixed(2);
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
-        <h3 className="text-2xl font-semibold mb-2 text-red-600">با عرض پوزش، زمان آزمون به پایان رسید.</h3>
+        <h3 className="text-2xl font-semibold mb-2 text-red-600">با عرض پوزش، زمان آزمون به پایان رسید. برای دریافت پاسخنامه و مشاوره در تلگرام به پشتیبان پیام دهید: Zheidary20@</h3>
         <div className="text-5xl font-bold text-brand-500 mt-2">{percent}%</div>
         <div className="mt-6">
           <button onClick={() => navigate('/')} className="btn-primary">بازگشت به صفحه اصلی</button>
@@ -167,7 +169,7 @@ export default function Quiz() {
 
   if (result) {
     const percent = ((result.score / Math.max(1, result.total)) * 100).toFixed(2);
-    const message = `از شرکت در آزمون متشکریم. برای مشاوره تماس بگیرید: 021-12345678`; // نمونه متن - قابل ویرایش
+    const message = `از شرکت شما در آزمون متشکریم، برای دریافت پاسخنامه و مشاوره در تلگرام به پشتیبان پیام دهید: Zheidary20@`; // نمونه متن - قابل ویرایش
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
         <h3 className="text-2xl font-semibold mb-2">نتیجه شما</h3>
@@ -183,7 +185,8 @@ export default function Quiz() {
   const q = questions[index];
 
   return (
-    <div className="space-y-4">
+    <div className="min-h-screen flex items-start justify-center bg-gradient-to-br from-[#a1c4fd] via-[#c2e9fb] to-[#fbc2eb] p-4 pt-28">
+      <div className="space-y-4 bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-6 w-full max-w-2xl border border-white/40">
       <Timer seconds={totalTime} onExpire={() => setTimeUp(true)} />
 
       {/* دکمه نمایش صورت سوالات */}
@@ -290,6 +293,7 @@ export default function Quiz() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

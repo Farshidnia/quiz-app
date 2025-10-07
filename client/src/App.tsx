@@ -24,7 +24,7 @@ export default function App() {
         ) : (
           <>
             <Navbar />
-            <main className="container-sm py-8">
+            <main className="min-h-screen w-full py-8">
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/quiz" element={<Quiz />} />

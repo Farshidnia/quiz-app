@@ -163,7 +163,7 @@ export default function AdminPage() {
   const pageData = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   return (
-    <div className="card">
+     <div className="max-w-4xl mx-auto mt-8 bg-white/90 rounded-2xl shadow-lg p-6 backdrop-blur-sm border border-white/30">
       {!token ? (
         <>
           <h3 className="text-xl font-semibold mb-3">ورود ادمین</h3>
@@ -270,11 +270,8 @@ export default function AdminPage() {
                         <td className="px-4 py-2 text-center">{r.name}</td>
                         <td className="px-4 py-2 text-center">{ ((r.score / Math.max(1, r.total)) * 100).toFixed(2) + '%' }</td>
                         <td className="px-4 py-2 text-center">
-                          <button
-                            onClick={() => handleOpenModal(r)}
-                            className="btn-primary text-xs px-2 py-1"
-                          >
-                            نمایش
+                          <button onClick={() => handleOpenModal(r)} className="btn-table">
+                            جزئیات
                           </button>
                         </td>
                       </tr>

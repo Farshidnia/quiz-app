@@ -5,50 +5,137 @@
 @tailwind components;
 @tailwind utilities;
 
-/* global */
-:root{
+/* 🌈 تنظیمات کلی و فونت */
+:root {
   --bg: #f8fafc;
   --card: #ffffff;
   --muted: #6b7280;
 }
 
-html,body,#root {
+html, body, #root {
+  width: 100%;
   height: 100%;
-}
-
-body {
-  @apply bg-gray-50 text-gray-800;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #89f7fe 0%, #fbc2eb 50%, #f6d365 100%);
+  background-attachment: fixed;
   font-family: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, "Helvetica Neue", Arial;
-  -webkit-font-smoothing: antialiased;
   direction: rtl;
+  color: #222;
 }
 
-/* small card style */
+/* 🧱 حذف هرگونه محدودیت از root */
+#root {
+  background: transparent !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+/* کارت‌ها با حالت شیشه‌ای زیبا */
 .card {
-  @apply bg-white rounded-2xl shadow-md p-6;
+  @apply bg-white/90 rounded-2xl shadow-lg p-6 backdrop-blur-sm border border-white/40;
 }
 
-/* subtle button */
+/* دکمه‌ها: بزرگ‌تر و خواناتر و با حداقل اندازه ثابت */
+/* .btn برای بیشتر دکمه‌های معمولی استفاده می‌شود */
 .btn {
-  @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium shadow-sm;
+  @apply inline-flex items-center justify-center rounded-md font-semibold shadow-md transition-all;
+  padding: 0.75rem 1.25rem; /* معادل px-6 py-3 */
+  font-size: 1.0625rem;     /* کمی بزرگ‌تر از base */
+  line-height: 1;
+  min-width: 120px;
+  min-height: 44px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  vertical-align: middle;
 }
+
+/* اگر بخواهی دکمه‌ای کوچک‌تر داشته باشی، از کلاس btn-sm استفاده کن */
+.btn-sm {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  min-width: auto;
+  min-height: 32px;
+}
+
+/* دکمهٔ اصلی */
 .btn-primary {
-  @apply btn bg-brand-500 text-white hover:bg-brand-600;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  color: white;
+  font-weight: 700;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(118, 75, 162, 0.28);
+  border: none;
 }
+
+/* hover */
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(118, 75, 162, 0.36);
+}
+
+/* دکمه‌های Ghost (شفاف) */
 .btn-ghost {
-  @apply btn bg-transparent border border-gray-200 text-gray-700 hover:bg-gray-50;
+  background-color: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #222;
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 0.6rem 1rem;
+}
+
+/* اگر می‌خواهی یک دکمهٔ کوچک ghost داشته باشی */
+.btn-ghost.btn-sm {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+  min-width: auto;
 }
 
 /* progress bar */
 .progress {
   @apply h-2 bg-gray-200 rounded-full overflow-hidden;
 }
+
 .progress > i {
   @apply block h-full bg-gradient-to-r from-purple-500 to-indigo-500;
 }
 
-/* responsive container */
+/* container برای وسط‌چین کردن */
 .container-sm {
   @apply max-w-2xl mx-auto px-4;
+}
+
+/* کمک: اگه در بعضی جاها از utilityهایی مثل text-xs px-2 ضبط کوچکی ایجاد می‌کنه */
+/* و می‌خوای حتماً دکمهٔ مشخصی کوچک بمونه، از کلاس btn-sm استفاده کن */
+/* مثال در جدول ادمین: className="btn btn-sm btn-primary" */
+
+.btn,
+.btn-primary,
+.btn-ghost {
+  min-width: 120px !important;
+  min-height: 44px !important;
+  font-size: 1.05rem !important;
+  padding: 0.75rem 1.25rem !important;
+  line-height: 1.1 !important;
+}
+
+/* دکمه کوچک مخصوص جدول ادمین */
+.btn-table {
+  @apply inline-flex items-center justify-center text-sm font-medium rounded-md transition-all;
+  min-width: 70px !important;
+  min-height: 32px !important;
+  padding: 0.25rem 0.75rem !important;
+  line-height: 1 !important;
+  font-size: 0.85rem !important;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(118, 75, 162, 0.3);
+}
+.btn-table:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(118, 75, 162, 0.4);
 }

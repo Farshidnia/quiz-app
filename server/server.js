@@ -118,10 +118,13 @@ async function initPostgres() {
         score INTEGER NOT NULL,
         total INTEGER NOT NULL,
         answers JSONB NOT NULL,
+        phone TEXT,
         time TIMESTAMPTZ NOT NULL DEFAULT now()
       );
     `;
     await pool.query(createTableSQL);
+    // ✅ ensure phone column exists for compatibility with older deployments
+    try { await pool.query("ALTER TABLE submissions ADD COLUMN IF NOT EXISTS phone TEXT;"); } catch(e) { /* ignore */ }
     console.log('✅ Connected to PostgreSQL and ensured submissions table exists.');
   } catch (err) {
     console.error('❌ PostgreSQL init error:', err);
@@ -205,7 +208,8 @@ app.get('/api/questions/:quizId', async (req, res) => {
 // -----------------------------
 app.post('/api/submit', async (req, res) => {
   try {
-    const { name, quizId, answers } = req.body;
+    // ✅ accept optional phone field from client
+    const { name, quizId, answers, phone } = req.body;
     if (!name || !quizId || !answers) {
       return res.status(400).json({ error: 'invalid payload' });
     }
@@ -261,11 +265,11 @@ app.post('/api/submit', async (req, res) => {
     // save
     if (pool) {
       const insertSQL = `
-        INSERT INTO submissions(name, quiz_id, score, total, answers)
-        VALUES ($1, $2, $3, $4, $5::jsonb)
+        INSERT INTO submissions(name, quiz_id, score, total, answers, phone)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6)
         RETURNING id, time;
       `;
-      const vals = [name, quizId, score, total, JSON.stringify(answers)];
+      const vals = [name, quizId, score, total, JSON.stringify(answers), phone || null];
       const r = await pool.query(insertSQL, vals);
       const inserted = r.rows[0];
       return res.json({ score, total, id: inserted.id, time: inserted.time });
@@ -284,6 +288,7 @@ app.post('/api/submit', async (req, res) => {
         score,
         total,
         answers,
+        phone: phone || null, // ✅ added phone to JSON record
         time: new Date().toISOString()
       };
 
@@ -324,7 +329,7 @@ app.get('/api/results', async (req, res) => {
 
     let results = [];
     if (pool) {
-      const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, time FROM submissions ORDER BY time DESC;`;
+      const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, phone, time FROM submissions ORDER BY time DESC;`;
       const r = await pool.query(q);
       results = await Promise.all(r.rows.map(async row => ({
         id: row.id,
@@ -368,7 +373,7 @@ app.get('/api/results/:id', async (req, res) => {
 
     if (pool) {
       const idParam = req.params.id;
-      const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, time FROM submissions WHERE id = $1 LIMIT 1;`;
+      const q = `SELECT id, name, quiz_id AS "quizId", score, total, answers, phone, time FROM submissions WHERE id = $1 LIMIT 1;`;
       const r = await pool.query(q, [idParam]);
       if (r.rowCount === 0) return res.status(404).json({ error: 'submission not found' });
 

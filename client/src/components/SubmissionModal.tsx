@@ -72,6 +72,8 @@ export default function SubmissionModal({
             <div className="text-lg font-semibold">
               جزئیات آزمون — {sub.name}
             </div>
+            {/* ✅ show phone (always display; show 'بدون شماره تماس' if missing) */}
+            <div className="text-sm text-gray-700">شماره تماس: {sub.phone || 'بدون شماره تماس'}</div>
             <div className="text-sm text-gray-600">
               آزمون: {sub.quizTitle || sub.quizId} —{' '}
               {moment(sub.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}

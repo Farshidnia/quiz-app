@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+// ✅ added phone input handling (optional)
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -11,6 +12,9 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 export default function Home() {
   const [name, setName] = useState('');
+  // ✅ added phone state
+  const [phone, setPhone] = useState('');
+
   const [quizId, setQuizId] = useState('default');
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +50,13 @@ export default function Home() {
       alert('لطفا نام خود را وارد کنید');
       return;
     }
-    navigate(`/quiz?name=${encodeURIComponent(name)}&quiz=${encodeURIComponent(quizId)}`);
+    // ✅ validate phone if provided (must start with 09 and be 11 digits)
+    if (phone && !/^09\d{9}$/.test(phone)) {
+      alert('شماره تماس نامعتبر است. فرمت درست: 09121234567');
+      return;
+    }
+    // ✅ include phone as optional query param
+    navigate(`/quiz?name=${encodeURIComponent(name)}&quiz=${encodeURIComponent(quizId)}&phone=${encodeURIComponent(phone)}`);
   }
 
   if (loading) {
@@ -58,16 +68,29 @@ export default function Home() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="card mx-auto mt-8">
-      <h2 className="text-2xl font-semibold mb-4">آزمون آنلاین</h2>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="max-w-md mx-auto mt-12 bg-white/90 rounded-2xl shadow-lg p-6 backdrop-blur-sm border border-white/30">
+      <h2 className="text-2xl font-semibold mb-4">آزمون آنلاین خانم سجادی</h2>
       <div className="space-y-4">
         <label className="block">
-          <div className="text-sm text-gray-600">نام</div>
+          <div className="text-sm text-gray-600">نام و نام خانوادگی</div>
           <input
             value={name}
             onChange={e => setName(e.target.value)}
             className="mt-1 w-full border rounded-lg px-3 py-2"
-            placeholder="مثال: جواد"
+            placeholder="مثال: جواد فرشیدنیا"
+          />
+        </label>
+
+        <label className="block">
+          <div className="text-sm text-gray-600">شماره تماس (اختیاری)</div>
+          <input
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            className="mt-1 w-full border rounded-lg px-3 py-2"
+            placeholder="مثال: 09211234567"
           />
         </label>
 
