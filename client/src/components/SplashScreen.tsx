@@ -15,7 +15,7 @@ export default function SplashScreen() {
         transition={{ type: 'spring', stiffness: 120 }}
         className="card text-center"
       >
-        <div className="text-3xl font-bold text-brand-600">Quiz Modern</div>
+        <div className="text-3xl font-bold text-brand-600">هوش برتر</div>
         <div className="mt-2 text-sm text-muted">آزمون آنلاین — تجربه‌ای سریع و روان</div>
       </motion.div>
     </motion.div>

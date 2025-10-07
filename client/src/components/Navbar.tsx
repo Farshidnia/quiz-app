@@ -17,7 +17,7 @@ export default function Navbar() {
             Q
           </div>
           <div className="text-xl font-bold text-white drop-shadow-sm">
-            Quiz Modern
+            هوش برتر
           </div>
         </Link>
 

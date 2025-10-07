@@ -163,8 +163,7 @@ export default function AdminPage() {
   const pageData = sorted.slice((page - 1) * pageSize, page * pageSize);
 
   return (
-     <div className="flex flex-col items-center justify-start min-h-screen p-4">
-      <div className="w-full max-w-5xl bg-white/90 rounded-2xl shadow-lg p-6 backdrop-blur-sm border border-white/30">
+     <div className="max-w-4xl mx-auto mt-8 bg-white/90 rounded-2xl shadow-lg p-6 backdrop-blur-sm border border-white/30">
       {!token ? (
         <>
           <h3 className="text-xl font-semibold mb-3">ورود ادمین</h3>
@@ -311,7 +310,6 @@ export default function AdminPage() {
           <SubmissionModal open={!!modalData} onClose={handleCloseModal} data={modalData} />
         </>
       )}
-      </div>
     </div>
   );
 }
