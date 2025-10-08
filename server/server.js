@@ -108,6 +108,27 @@ async function initPostgres() {
       ssl: { rejectUnauthorized: false },
     });
 
+    // ✅ اطمینان از وجود ستون phone در جدول submissions (در Render)
+(async () => {
+  try {
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name='submissions' AND column_name='phone'
+        ) THEN
+          ALTER TABLE submissions ADD COLUMN phone TEXT;
+        END IF;
+      END $$;
+    `);
+    console.log("✅ Checked/added 'phone' column in submissions table.");
+  } catch (err) {
+    console.error("❌ Failed to ensure 'phone' column:", err.message);
+  }
+})();
+
+
     await pool.query('SELECT 1');
 
     const createTableSQL = `
