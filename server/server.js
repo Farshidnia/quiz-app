@@ -495,6 +495,36 @@ async function ensureDataFiles() {
   }
 }
 
+
+
+
+// ✅ Endpoint موقت برای بررسی ستون‌های جدول submissions
+app.get("/api/check-columns", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'submissions';
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ Error checking columns:", err);
+    res.status(500).send("Database error");
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
 // -----------------------------
 // Start app
 // -----------------------------
