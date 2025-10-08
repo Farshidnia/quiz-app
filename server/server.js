@@ -355,6 +355,7 @@ app.get('/api/results', async (req, res) => {
       results = await Promise.all(r.rows.map(async row => ({
         id: row.id,
         name: row.name,
+        phone: row.phone || null, // ✅ این خطو اضافه کن
         quizId: row.quizId,
         quizTitle: await getQuizTitle(row.quizId),
         score: row.score,
