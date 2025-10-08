@@ -14,12 +14,12 @@ type Submission = {
   id: number | string;
   name: string;
   quizId: string;
-  quizTitle?: string; // اضافه شده برای نمایش عنوان فارسی آزمون
+  quizTitle?: string;
   score: number;
   total: number;
   answers: Record<string, any>;
   time: string;
-  phone?: string; // ✅ اضافه شد برای رفع خطا
+  phone?: string;
 };
 
 export default function SubmissionModal({
@@ -59,22 +59,24 @@ export default function SubmissionModal({
   }, [quiz, sub]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4">
+      {/* پس‌زمینه کلیک‌پذیر برای بستن */}
+      <div className="absolute inset-0" onClick={onClose}></div>
+
+      {/* مودال */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
-        className="relative max-w-4xl w-full bg-white rounded-lg shadow-lg overflow-hidden"
-        style={{ maxHeight: '90vh' }}
+        className="relative w-full max-w-4xl bg-white rounded-xl shadow-lg flex flex-col max-h-[90vh] overflow-hidden"
       >
-        <div className="p-4 border-b flex items-center justify-between">
+        {/* بخش بالایی - اطلاعات شرکت‌کننده */}
+        <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-gray-50">
           <div>
-            <div className="text-lg font-semibold">
-              جزئیات آزمون — {sub.name}
+            <div className="text-lg font-semibold">جزئیات آزمون — {sub.name}</div>
+            <div className="text-sm text-gray-700">
+              شماره تماس: {sub.phone || 'بدون شماره تماس'}
             </div>
-            {/* ✅ show phone (always display; show 'بدون شماره تماس' if missing) */}
-            <div className="text-sm text-gray-700">شماره تماس: {sub.phone || 'بدون شماره تماس'}</div>
             <div className="text-sm text-gray-600">
               آزمون: {sub.quizTitle || sub.quizId} —{' '}
               {moment(sub.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
@@ -89,19 +91,15 @@ export default function SubmissionModal({
           </div>
         </div>
 
-        <div className="p-4 border-b flex justify-around text-center text-sm bg-gray-50">
-          <div className="text-green-700 font-semibold">
-            صحیح: {stats.correct}
-          </div>
-          <div className="text-red-700 font-semibold">
-            غلط: {stats.wrong}
-          </div>
-          <div className="text-gray-600 font-semibold">
-            بدون پاسخ: {stats.unanswered}
-          </div>
+        {/* آمار پاسخ‌ها */}
+        <div className="p-3 border-b flex justify-around text-center text-sm bg-white sticky top-0 z-10">
+          <div className="text-green-700 font-semibold">صحیح: {stats.correct}</div>
+          <div className="text-red-700 font-semibold">غلط: {stats.wrong}</div>
+          <div className="text-gray-600 font-semibold">بدون پاسخ: {stats.unanswered}</div>
         </div>
 
-        <div className="p-4 overflow-y-auto" style={{ maxHeight: '70vh' }}>
+        {/* بخش پاسخ‌ها (اسکرول‌پذیر) */}
+        <div className="flex-1 overflow-y-auto p-4 bg-white">
           {quiz.length === 0 && (
             <div className="text-center text-gray-500">
               سوالی برای نمایش وجود ندارد.
