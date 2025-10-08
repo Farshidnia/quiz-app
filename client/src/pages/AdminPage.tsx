@@ -251,56 +251,82 @@ export default function AdminPage() {
             {loading ? (
               <Loading />
             ) : (
-                <table className="min-w-[600px] w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className="px-4 py-2 text-center">زمان</th>
-                      <th className="px-4 py-2 text-center">آزمون</th>
-                      <th className="px-4 py-2 text-center">نام</th>
-                      <th className="px-4 py-2 text-center">امتیاز</th>
-                      <th className="px-4 py-2 text-center">جزئیات</th>
+              <table className="min-w-[600px] w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-100">
+                    <th className="px-4 py-2 text-center">زمان</th>
+                    <th className="px-4 py-2 text-center">آزمون</th>
+                    <th className="px-4 py-2 text-center">نام</th>
+                    <th className="px-4 py-2 text-center">امتیاز</th>
+                    <th className="px-4 py-2 text-center">جزئیات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageData.map((r) => (
+                    <tr key={r.id} className="border-t hover:bg-gray-50">
+                      <td className="px-4 py-2 text-center">
+                        {moment(r.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
+                      </td>
+                      <td className="px-4 py-2 text-center">{r.quizTitle}</td>
+                      <td className="px-4 py-2 text-center">{r.name}</td>
+                      <td className="px-4 py-2 text-center">{((r.score / Math.max(1, r.total)) * 100).toFixed(2) + '%'}</td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          onClick={() => handleOpenModal(r)}
+                          className="btn-table"
+                        >
+                          جزئیات
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {pageData.map(r => (
-                      <tr key={r.id} className="border-t hover:bg-gray-50">
-                        <td className="px-4 py-2 text-center">
-                          {moment(r.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
-                        </td>
-                        <td className="px-4 py-2 text-center">{r.quizTitle}</td>
-                        <td className="px-4 py-2 text-center">{r.name}</td>
-                        <td className="px-4 py-2 text-center">{ ((r.score / Math.max(1, r.total)) * 100).toFixed(2) + '%' }</td>
-                        <td className="px-4 py-2 text-center">
-                          <button onClick={() => handleOpenModal(r)} className="btn-table">
-                            جزئیات
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {pageData.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="py-6 text-center text-gray-500">
-                          نتیجه‌ای پیدا نشد.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                  ))}
+                  {pageData.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="py-6 text-center text-gray-500">
+                        نتیجه‌ای پیدا نشد.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             )}
           </div>
 
-          {/* pagination */}
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-gray-600">صفحه {page} از {totalPages}</div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setPage(1)} className="btn-ghost" disabled={page === 1}>اول</button>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} className="btn-ghost" disabled={page === 1}>قبلی</button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="btn-ghost" disabled={page === totalPages}>بعدی</button>
-              <button onClick={() => setPage(totalPages)} className="btn-ghost" disabled={page === totalPages}>آخر</button>
-            </div>
+          {/* دکمه‌های صفحه‌بندی (بیرون از جدول و اسکرول) */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-6">
+            <button
+              onClick={() => setPage(1)}
+              className="btn-ghost"
+              disabled={page === 1}
+            >
+              اول
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="btn-ghost"
+              disabled={page === 1}
+            >
+              قبلی
+            </button>
+            <span className="text-sm text-gray-600">
+              صفحه {page} از {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="btn-ghost"
+              disabled={page === totalPages}
+            >
+              بعدی
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              className="btn-ghost"
+              disabled={page === totalPages}
+            >
+              آخر
+            </button>
           </div>
-
-          {/* modal loading */}
+/* modal loading */
           {modalLoading && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
               <Loading />
