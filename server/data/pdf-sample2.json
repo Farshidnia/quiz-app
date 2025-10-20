@@ -1,0 +1,32 @@
+{
+  "mode": "image",
+  "title": "آزمون هوش ششم",
+  "imageUrls": [
+    "/api/static/quizzes/p1.png",
+    "/api/static/quizzes/p2.png",
+    "/api/static/quizzes/p3.png"
+  ],
+  "count": 20,
+  "questions": [
+    { "id": 1, "correct": "ج" },
+    { "id": 2, "correct": "الف" },
+    { "id": 3, "correct": "د" },
+    { "id": 4, "correct": "الف" },
+    { "id": 5, "correct": "ج" },
+    { "id": 6, "correct": "ب" },
+    { "id": 7, "correct": "ب" },
+    { "id": 8, "correct": "الف" },
+    { "id": 9, "correct": "ب" },
+    { "id": 10, "correct": "ب" },
+    { "id": 11, "correct": "ج" },
+    { "id": 12, "correct": "د" },
+    { "id": 13, "correct": "ب" },
+    { "id": 14, "correct": "الف" },
+    { "id": 15, "correct": "ب" },
+    { "id": 16, "correct": "ج" },
+    { "id": 17, "correct": "ج" },
+    { "id": 18, "correct": "د" },
+    { "id": 19, "correct": "د" },
+    { "id": 20, "correct": "ج" }
+  ]
+}
