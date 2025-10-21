@@ -1,4 +1,3 @@
-// server.js - نسخهٔ نهایی با تنظیمات CORS و سرو استاتیک دقیق و رفع خطای ORB
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
@@ -453,30 +452,32 @@ app.post('/api/quiz/create', authorizeRole('SUPER_ADMIN'), async (req, res) => {
 });
 
 // -----------------------------
-// List quizzes
+// List quizzes (robust, tolerant — does not require a 'default.json')
 // -----------------------------
 app.get('/api/quizzes', async (req, res) => {
   try {
     let files = [];
     try { files = await fs.readdir(DATA_DIR); } catch (e) { files = []; }
-    if (!files || files.length === 0) {
-      try { files = await fs.readdir(__dirname); } catch (e) { files = []; }
-    }
-    const jsonFiles = files.filter(f => f.endsWith('.json') && f !== 'submissions.json');
+
+    const jsonFiles = (files || []).filter(f => f.endsWith('.json') && f !== 'submissions.json');
 
     const quizzes = [];
     for (const file of jsonFiles) {
       const filePath = path.join(DATA_DIR, file);
       const data = await readJSON(filePath, null);
-      if (data) {
-        quizzes.push({
-          id: path.basename(file, '.json'),
-          title: data.title || path.basename(file, '.json')
-        });
+      if (!data) {
+        console.warn(`Skipping invalid quiz file: ${file}`);
+        continue;
       }
+      quizzes.push({
+        id: path.basename(file, '.json'),
+        title: data.title || path.basename(file, '.json'),
+        mode: data.mode || (data.questions ? 'text' : 'unknown')
+      });
     }
 
-    res.json(quizzes);
+    // If there are no quizzes, return an empty array (frontend will handle)
+    return res.json(quizzes);
   } catch (err) {
     console.error('Error reading quizzes:', err);
     res.status(500).json({ error: 'خطا در خواندن لیست آزمون‌ها' });
@@ -513,14 +514,6 @@ app.get("/api/check-columns", async (req, res) => {
     res.status(500).send("Database error");
   }
 });
-
-
-
-
-
-
-
-
 
 
 

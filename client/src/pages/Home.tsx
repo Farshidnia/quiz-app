@@ -15,7 +15,8 @@ export default function Home() {
   // ✅ added phone state
   const [phone, setPhone] = useState('');
 
-  const [quizId, setQuizId] = useState('default');
+  // start with empty quizId; will be set to first available quiz after fetch
+  const [quizId, setQuizId] = useState('');
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ export default function Home() {
 
         if (Array.isArray(data)) {
           setQuizzes(data);
+          if (data.length > 0 && !quizId) setQuizId(data[0].id);
         } else {
           console.error('API did not return an array:', data);
           setQuizzes([]);
@@ -48,6 +50,10 @@ export default function Home() {
   function start() {
     if (!name.trim()) {
       alert('لطفا نام خود را وارد کنید');
+      return;
+    }
+    if (!quizId) {
+      alert('لطفا یک آزمون را انتخاب کنید');
       return;
     }
     // ✅ validate phone if provided (must start with 09 and be 11 digits)
@@ -115,7 +121,7 @@ export default function Home() {
 
         <div className="flex gap-3">
           <button onClick={start} className="btn-primary">شروع آزمون</button>
-          <button onClick={() => { setName(''); setQuizId('default'); }} className="btn-ghost">پاک کردن</button>
+          <button onClick={() => { setName(''); setQuizId(''); }} className="btn-ghost">پاک کردن</button>
         </div>
       </div>
     </motion.div>
