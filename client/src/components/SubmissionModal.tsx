@@ -59,43 +59,51 @@ export default function SubmissionModal({
   }, [quiz, sub]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-6">
       {/* پس‌زمینه کلیک‌پذیر برای بستن */}
       <div className="absolute inset-0" onClick={onClose}></div>
 
-      {/* مودال */}
+      {/* مودال واکنش‌گرا */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 20 }}
-        className="relative w-full max-w-4xl bg-white rounded-xl shadow-lg flex flex-col max-h-[90vh] overflow-hidden"
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.25 }}
+        className="relative w-full h-[95vh] sm:h-auto sm:max-h-[90vh] max-w-4xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
       >
         {/* بخش بالایی - اطلاعات شرکت‌کننده */}
-        <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-gray-50">
-          <div>
-            <div className="text-lg font-semibold">جزئیات آزمون — {sub.name}</div>
-            <div className="text-sm text-gray-700">
-              شماره تماس: {sub.phone || 'بدون شماره تماس'}
+        <div className="p-4 border-b bg-gray-50 sticky top-0 z-20">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <div className="text-lg font-semibold">جزئیات آزمون — {sub.name}</div>
+              <div className="text-sm text-gray-700">
+                شماره تماس: {sub.phone || 'بدون شماره تماس'}
+              </div>
+              <div className="text-sm text-gray-600">
+                آزمون: {sub.quizTitle || sub.quizId} —{' '}
+                {moment(sub.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
+              </div>
             </div>
-            <div className="text-sm text-gray-600">
-              آزمون: {sub.quizTitle || sub.quizId} —{' '}
-              {moment(sub.time).locale('fa').format('jYYYY/jMM/jDD HH:mm')}
+            <div className="flex items-center gap-3">
+              <div className="text-sm">نمره:</div>
+              <div className="px-3 py-1 rounded bg-indigo-50 text-indigo-700 font-semibold">
+                {((sub.score / Math.max(1, sub.total)) * 100).toFixed(2)}%
+              </div>
+              <button
+                onClick={onClose}
+                className="btn-ghost px-3 py-1 border rounded-md hover:bg-gray-100 transition"
+              >
+                بستن
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-sm">نمره:</div>
-            <div className="px-3 py-1 rounded bg-indigo-50 text-indigo-700 font-semibold">
-              {((sub.score / Math.max(1, sub.total)) * 100).toFixed(2)}%
-            </div>
-            <button className="btn-ghost" onClick={onClose}>بستن</button>
-          </div>
-        </div>
 
-        {/* آمار پاسخ‌ها */}
-        <div className="p-3 border-b flex justify-around text-center text-sm bg-white sticky top-0 z-10">
-          <div className="text-green-700 font-semibold">صحیح: {stats.correct}</div>
-          <div className="text-red-700 font-semibold">غلط: {stats.wrong}</div>
-          <div className="text-gray-600 font-semibold">بدون پاسخ: {stats.unanswered}</div>
+          {/* آمار پاسخ‌ها */}
+          <div className="mt-3 flex justify-around text-center text-sm bg-white rounded-lg py-2 shadow-sm">
+            <div className="text-green-700 font-semibold">صحیح: {stats.correct}</div>
+            <div className="text-red-700 font-semibold">غلط: {stats.wrong}</div>
+            <div className="text-gray-600 font-semibold">بدون پاسخ: {stats.unanswered}</div>
+          </div>
         </div>
 
         {/* بخش پاسخ‌ها (اسکرول‌پذیر) */}
