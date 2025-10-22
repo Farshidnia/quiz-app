@@ -1,4 +1,3 @@
-// client/src/components/SubmissionModal.tsx
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import moment from 'moment-jalaali';
@@ -59,20 +58,27 @@ export default function SubmissionModal({
   }, [quiz, sub]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-2 sm:p-4">
       {/* پس‌زمینه کلیک‌پذیر برای بستن */}
       <div className="absolute inset-0" onClick={onClose}></div>
 
-      {/* مودال واکنش‌گرا */}
+      {/* مودال */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.97 }}
+        initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.97 }}
-        transition={{ duration: 0.25 }}
-        className="relative w-full h-[95vh] sm:h-auto sm:max-h-[90vh] max-w-4xl bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="
+          relative w-full sm:max-w-5xl bg-white rounded-2xl shadow-xl flex flex-col
+          max-h-[95vh] sm:max-h-[90vh]
+          overflow-hidden
+          sm:my-auto
+        "
+        style={{
+          height: '95vh', // برای موبایل تمام‌صفحه
+        }}
       >
-        {/* بخش بالایی - اطلاعات شرکت‌کننده */}
-        <div className="p-4 border-b bg-gray-50 sticky top-0 z-20">
+        {/* هدر مودال */}
+        <div className="p-4 border-b bg-gray-50 sticky top-0 z-10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
               <div className="text-lg font-semibold">جزئیات آزمون — {sub.name}</div>
@@ -89,29 +95,24 @@ export default function SubmissionModal({
               <div className="px-3 py-1 rounded bg-indigo-50 text-indigo-700 font-semibold">
                 {((sub.score / Math.max(1, sub.total)) * 100).toFixed(2)}%
               </div>
-              <button
-                onClick={onClose}
-                className="btn-ghost px-3 py-1 border rounded-md hover:bg-gray-100 transition"
-              >
+              <button className="btn-ghost" onClick={onClose}>
                 بستن
               </button>
             </div>
           </div>
-
-          {/* آمار پاسخ‌ها */}
-          <div className="mt-3 flex justify-around text-center text-sm bg-white rounded-lg py-2 shadow-sm">
-            <div className="text-green-700 font-semibold">صحیح: {stats.correct}</div>
-            <div className="text-red-700 font-semibold">غلط: {stats.wrong}</div>
-            <div className="text-gray-600 font-semibold">بدون پاسخ: {stats.unanswered}</div>
-          </div>
         </div>
 
-        {/* بخش پاسخ‌ها (اسکرول‌پذیر) */}
+        {/* آمار پاسخ‌ها */}
+        <div className="p-3 border-b flex justify-around text-center text-sm bg-white sticky top-[70px] sm:top-[60px] z-10">
+          <div className="text-green-700 font-semibold">صحیح: {stats.correct}</div>
+          <div className="text-red-700 font-semibold">غلط: {stats.wrong}</div>
+          <div className="text-gray-600 font-semibold">بدون پاسخ: {stats.unanswered}</div>
+        </div>
+
+        {/* محتوای اسکرول‌پذیر */}
         <div className="flex-1 overflow-y-auto p-4 bg-white">
           {quiz.length === 0 && (
-            <div className="text-center text-gray-500">
-              سوالی برای نمایش وجود ندارد.
-            </div>
+            <div className="text-center text-gray-500">سوالی برای نمایش وجود ندارد.</div>
           )}
 
           {quiz.map((q, idx) => {
@@ -143,9 +144,7 @@ export default function SubmissionModal({
                 </div>
 
                 <div className="mb-3 text-gray-800">
-                  {q.question && !q.question.startsWith('سوال شماره')
-                    ? q.question
-                    : null}
+                  {q.question && !q.question.startsWith('سوال شماره') ? q.question : null}
                 </div>
 
                 <div className="space-y-2">
