@@ -31,7 +31,6 @@ export default function Quiz() {
   const [answers, setAnswers] = useState<Record<number | string, string | null>>({});
   const [submitting, setSubmitting] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
-  const [timeUpPercent, setTimeUpPercent] = useState<string | null>(null); // ✅ نمره دریافتی بعد از زمان تمام شد
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
 
   // حالت آزمون تصویری
@@ -126,9 +125,8 @@ export default function Quiz() {
     setAnswers(prev => ({ ...prev, [q.id]: val }));
   }
 
-  // پایان آزمون (وقتی کاربر خودش می‌زنه)
+  // پایان آزمون
   async function finish() {
-    if (submitting) return;
     setSubmitting(true);
     try {
       const payload = { name, phone, quizId, answers }; // ✅ include phone in payload
@@ -139,26 +137,6 @@ export default function Quiz() {
       alert('خطا در ارسال پاسخ‌ها');
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  // ✅ ارسال هنگام اتمام تایمر — این تابع نتیجه را به سرور ارسال میکند
-  // و سپس حالت timeUp را فعال می‌کند و درصد نمره برگشتی را نمایش می‌دهد.
-  async function submitOnTimeUp() {
-    if (submitting) return; // جلوگیری از ارسال چندباره
-    setSubmitting(true);
-    try {
-      const payload = { name, phone, quizId, answers };
-      const { data } = await api.post('/api/submit', payload);
-      const percent = ((data.score / Math.max(1, data.total)) * 100).toFixed(2);
-      setTimeUpPercent(percent);
-    } catch (err) {
-      console.error('[timeup submit] error:', err);
-      // حتی در صورت خطا، کاربر باید پیام زمان اتمام را ببیند؛ ولی بهتر است لاگ کنیم.
-      setTimeUpPercent(null);
-    } finally {
-      setSubmitting(false);
-      setTimeUp(true);
     }
   }
 
@@ -175,10 +153,9 @@ export default function Quiz() {
     );
   }
 
-  // وقتی زمان تموم شده و ما submitOnTimeUp رو قبلا اجرا کردیم، این صفحه نمایش داده میشه.
   if (timeUp) {
-    // اگر submit موفقیت‌آمیز بوده باشه از timeUpPercent استفاده می‌کنیم؛ در غیر این صورت درصد محلی (پاسخ‌های پاسخ‌داده شده)
-    const percent = timeUpPercent ?? ((Object.entries(answers).filter(([id, val]) => val !== null).length / Math.max(1, questions.length)) * 100).toFixed(2);
+    const correctCount = Object.entries(answers).filter(([id, val]) => val !== null).length;
+    const percent = ((correctCount / Math.max(1, questions.length)) * 100).toFixed(2);
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
         <h3 className="text-2xl font-semibold mb-2 text-red-600">با عرض پوزش، زمان آزمون به پایان رسید. برای دریافت پاسخنامه و مشاوره در تلگرام به پشتیبان پیام دهید: Zheidary20@</h3>
@@ -210,8 +187,7 @@ export default function Quiz() {
   return (
     <div className="min-h-screen flex items-start justify-center bg-gradient-to-br from-[#a1c4fd] via-[#c2e9fb] to-[#fbc2eb] p-4 pt-28">
       <div className="space-y-4 bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-6 w-full max-w-2xl border border-white/40">
-      {/* تغییر: وقتی تایمر تموم شد باید submitOnTimeUp اجرا شود */}
-      <Timer seconds={totalTime} onExpire={() => submitOnTimeUp()} />
+      <Timer seconds={totalTime} onExpire={() => setTimeUp(true)} />
 
       {/* دکمه نمایش صورت سوالات */}
       {isImageMode && imageUrls.length > 0 && (
