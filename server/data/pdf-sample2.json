@@ -1,0 +1,10 @@
+{
+  "mode": "image",
+  "title": "تست نمایش تصویر",
+  "questions": [
+    { "id": 1, "imageUrl": "/api/static/quizzes/q1.jpg", "correct": "ج" },
+    { "id": 2, "imageUrl": "/api/static/quizzes/q2.jpg", "correct": "الف" },
+    { "id": 3, "imageUrl": "/api/static/quizzes/q3.jpg", "correct": "د" },
+    { "id": 4, "imageUrl": "/api/static/quizzes/q4.jpg", "correct": "الف" }
+  ]
+}
