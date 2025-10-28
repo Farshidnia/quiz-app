@@ -8,7 +8,7 @@ import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { X } from 'lucide-react';
-
+const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 // نوع داده برای آزمون تصویری
 interface ImageQuizObject {
   mode?: 'image' | string;
