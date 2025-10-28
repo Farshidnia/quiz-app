@@ -352,28 +352,59 @@ export default function Quiz() {
           </div>
         )}
 
-        {/* مودال نمایش تصویر سوال به صورت تمام صفحه با زوم */}
-        {questionImageModalOpen && questionImageSrc && (
-          <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
-            <div className="absolute inset-0" onClick={() => setQuestionImageModalOpen(false)} />
-            <div className="relative w-full h-full max-w-[1100px] max-h-[95vh] flex flex-col items-center">
-              <div className="absolute top-4 right-4 z-30 flex gap-2">
-                <button onClick={() => setImgZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))} className="btn-ghost">-</button>
-                <button onClick={() => setImgZoom(z => +(z + 0.25).toFixed(2))} className="btn-ghost">+</button>
-                <button onClick={() => { setImgZoom(1); setQuestionImageModalOpen(false); }} className="btn-ghost">بستن</button>
-              </div>
-              <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
-                <img
-                  src={questionImageSrc}
-                  alt="صورت سوال"
-                  style={{ transform: `scale(${imgZoom})` }}
-                  className="max-w-full max-h-full object-contain transition-transform"
-                  onDoubleClick={() => setImgZoom(z => z === 1 ? 2 : 1)}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        
+
+
+
+
+{/* مودال نمایش تصویر سوال به صورت تمام صفحه با زوم */}
+{questionImageModalOpen && questionImageSrc && (
+  <div
+    className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4"
+    onClick={() => setQuestionImageModalOpen(false)} // ← بستن با کلیک روی زمینه
+  >
+    <div
+      className="relative w-full h-full max-w-[1100px] max-h-[95vh] flex flex-col items-center"
+      onClick={(e) => e.stopPropagation()} // ← جلوگیری از بستن هنگام کلیک روی خود عکس
+    >
+      {/* دکمه‌های کنترل */}
+      <div className="absolute top-4 right-4 z-30 flex gap-2">
+        <button
+          onClick={() => setImgZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))}
+          className="btn-ghost"
+        >
+          -
+        </button>
+        <button
+          onClick={() => setImgZoom(z => +(z + 0.25).toFixed(2))}
+          className="btn-ghost"
+        >
+          +
+        </button>
+        <button
+          onClick={() => { setImgZoom(1); setQuestionImageModalOpen(false); }}
+          className="btn-ghost"
+        >
+          بستن ✕
+        </button>
+      </div>
+
+      {/* تصویر */}
+      <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+        <img
+          src={questionImageSrc}
+          alt="صورت سوال"
+          style={{ transform: `scale(${imgZoom})` }}
+          className="max-w-full max-h-full object-contain transition-transform"
+          onDoubleClick={() => setImgZoom(z => (z === 1 ? 2 : 1))}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
+
+
 
       </div>
     </div>
