@@ -8,20 +8,19 @@ import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { X } from 'lucide-react';
-
 // نوع داده برای آزمون تصویری
 interface ImageQuizObject {
   mode?: 'image' | string;
   imageUrls?: string[];
   count?: number;
-  questions?: Array<{ id?: number | string; correct?: string }>;
+  questions?: Array<{ id?: number | string; correct?: string; imageUrl?: string }>;
 }
 
 export default function Quiz() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const name = searchParams.get('name') ?? '';
-  const phone = searchParams.get('phone') ?? ''; // ✅ added phone support
+  const phone = searchParams.get('phone') ?? ''; // optional
 
   const quizId = searchParams.get('quiz') ?? 'default';
 
@@ -31,13 +30,19 @@ export default function Quiz() {
   const [answers, setAnswers] = useState<Record<number | string, string | null>>({});
   const [submitting, setSubmitting] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
+  const [timeUpPercent, setTimeUpPercent] = useState<string | null>(null);
   const [result, setResult] = useState<{ score: number; total: number } | null>(null);
 
-  // حالت آزمون تصویری
+  // حالت آزمون تصویری (قبلی: مجموعه صفحات)
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isImageMode, setIsImageMode] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // per-question image modal/zoom state
+  const [questionImageModalOpen, setQuestionImageModalOpen] = useState(false);
+  const [questionImageSrc, setQuestionImageSrc] = useState<string | null>(null);
+  const [imgZoom, setImgZoom] = useState<number>(1);
 
   // آدرس پایه سرور
   const API_BASE =
@@ -61,6 +66,7 @@ export default function Quiz() {
         if (!mounted) return;
 
         if (Array.isArray(data)) {
+          // قدیمی: آرایه سوالات (متنی)
           setQuestions(data as Question[]);
           setIsImageMode(false);
           setImageUrls([]);
@@ -68,7 +74,7 @@ export default function Quiz() {
           const obj = data as ImageQuizObject;
 
           if (obj && (obj.mode === 'image' || obj.imageUrls)) {
-            // حالت آزمون تصویری
+            // حالت آزمون تصویری کلی (آرشیو صفحات PDF -> تصاویر)
             const count = obj.count ?? (Array.isArray(obj.questions) ? obj.questions.length : 20);
             const baseQuestions: Question[] = [];
 
@@ -79,10 +85,12 @@ export default function Quiz() {
                 question: `سوال شماره ${i + 1}`,
                 options: ['الف', 'ب', 'ج', 'د'],
                 correct: qObj.correct ?? undefined,
-              } as Question & { correct?: string });
+                // اگر هر سوال imageUrl داشت آن را ضمیمه کن
+                ...(qObj.imageUrl ? { imageUrl: qObj.imageUrl } : {}),
+              } as Question & { correct?: string; imageUrl?: string });
             }
 
-            // ساخت آدرس کامل تصاویر
+            // ساخت آدرس کامل تصاویر (مجموعه صفحات)
             const fullUrls = (obj.imageUrls || []).map(img =>
               img.startsWith('http') ? img : `${API_BASE}${img.startsWith('/') ? img : '/' + img}`
             );
@@ -91,7 +99,16 @@ export default function Quiz() {
             setIsImageMode(true);
             setImageUrls(fullUrls);
           } else if (obj.questions && Array.isArray(obj.questions)) {
-            setQuestions(obj.questions as any as Question[]);
+            // اگر ساختار جدید: questions شامل item هایی با imageUrl برای هر سوال
+            // تبدیل مستقیم به questions
+            const mapped = (obj.questions as any[]).map((q, i) => ({
+              id: q.id ?? i + 1,
+              question: q.question ?? `سوال شماره ${i + 1}`,
+              options: q.options ?? ['الف', 'ب', 'ج', 'د'],
+              correct: q.correct,
+              ...(q.imageUrl ? { imageUrl: q.imageUrl } : {}),
+            })) as Question[];
+            setQuestions(mapped);
             setIsImageMode(false);
             setImageUrls([]);
           } else {
@@ -125,11 +142,21 @@ export default function Quiz() {
     setAnswers(prev => ({ ...prev, [q.id]: val }));
   }
 
-  // پایان آزمون
+  // open per-question image fullscreen modal (with zoom)
+  function openQuestionImage(src?: string | null) {
+    if (!src) return;
+    const full = src.startsWith('http') ? src : `${API_BASE}${src.startsWith('/') ? src : '/' + src}`;
+    setQuestionImageSrc(full);
+    setImgZoom(1);
+    setQuestionImageModalOpen(true);
+  }
+
+  // پایان آزمون (وقتی کاربر خودش می‌زنه)
   async function finish() {
+    if (submitting) return;
     setSubmitting(true);
     try {
-      const payload = { name, phone, quizId, answers }; // ✅ include phone in payload
+      const payload = { name, phone, quizId, answers }; // include phone
       const { data } = await api.post('/api/submit', payload);
       setResult({ score: data.score, total: data.total });
     } catch (err) {
@@ -137,6 +164,24 @@ export default function Quiz() {
       alert('خطا در ارسال پاسخ‌ها');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // ارسال هنگام اتمام تایمر
+  async function submitOnTimeUp() {
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const payload = { name, phone, quizId, answers };
+      const { data } = await api.post('/api/submit', payload);
+      const percent = ((data.score / Math.max(1, data.total)) * 100).toFixed(2);
+      setTimeUpPercent(percent);
+    } catch (err) {
+      console.error('[timeup submit] error:', err);
+      setTimeUpPercent(null);
+    } finally {
+      setSubmitting(false);
+      setTimeUp(true);
     }
   }
 
@@ -153,12 +198,19 @@ export default function Quiz() {
     );
   }
 
+  // وقتی زمان تموم شده و submitOnTimeUp قبلاً اجرا شده
   if (timeUp) {
-    const correctCount = Object.entries(answers).filter(([id, val]) => val !== null).length;
-    const percent = ((correctCount / Math.max(1, questions.length)) * 100).toFixed(2);
+    const percent =
+      timeUpPercent ??
+      (
+        (Object.entries(answers).filter(([id, val]) => val !== null).length / Math.max(1, questions.length)) *
+        100
+      ).toFixed(2);
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
-        <h3 className="text-2xl font-semibold mb-2 text-red-600">با عرض پوزش، زمان آزمون به پایان رسید. برای دریافت پاسخنامه و مشاوره در تلگرام به پشتیبان پیام دهید: Zheidary20@</h3>
+        <h3 className="text-2xl font-semibold mb-2 text-red-600">
+          با عرض پوزش، زمان آزمون به پایان رسید. برای دریافت پاسخنامه و مشاوره در تلگرام به پشتیبان پیام دهید: Zheidary20@
+        </h3>
         <div className="text-5xl font-bold text-brand-500 mt-2">{percent}%</div>
         <div className="mt-6">
           <button onClick={() => navigate('/')} className="btn-primary">بازگشت به صفحه اصلی</button>
@@ -169,7 +221,7 @@ export default function Quiz() {
 
   if (result) {
     const percent = ((result.score / Math.max(1, result.total)) * 100).toFixed(2);
-    const message = `از شرکت شما در آزمون متشکریم، برای دریافت پاسخنامه و مشاوره در تلگرام به پشتیبان پیام دهید: Zheidary20@`; // نمونه متن - قابل ویرایش
+    const message = `از شرکت شما در آزمون متشکریم، برای دریافت پاسخنامه و مشاوره در تلگرام به پشتیبان پیام دهید: Zheidary20@`;
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card text-center">
         <h3 className="text-2xl font-semibold mb-2">نتیجه شما</h3>
@@ -187,112 +239,172 @@ export default function Quiz() {
   return (
     <div className="min-h-screen flex items-start justify-center bg-gradient-to-br from-[#a1c4fd] via-[#c2e9fb] to-[#fbc2eb] p-4 pt-28">
       <div className="space-y-4 bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg p-6 w-full max-w-2xl border border-white/40">
-      <Timer seconds={totalTime} onExpire={() => setTimeUp(true)} />
+        {/* تغییر: وقتی تایمر تموم شد باید submitOnTimeUp اجرا شود */}
+        <Timer seconds={totalTime} onExpire={() => submitOnTimeUp()} />
 
-      {/* دکمه نمایش صورت سوالات */}
-      {isImageMode && imageUrls.length > 0 && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => setShowImageModal(true)}
-            className="btn-primary"
-          >
-            نمایش صورت سوال
-          </button>
-        </div>
-      )}
-
-      {/* نمایش کارت سوال */}
-      <AnimatePresence>
-        {q && (
-          <QuestionCard
-            key={String(q.id)}
-            q={q}
-            selected={answers[q.id] ?? null}
-            onSelect={selectAnswer}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* دکمه‌های ناوبری */}
-      <div className="flex items-center justify-between mt-4">
-        <div className="text-sm text-muted">{index + 1} از {questions.length}</div>
-
-        <div className="flex gap-2">
-          {index > 0 && (
-            <button onClick={() => setIndex(i => Math.max(0, i - 1))} className="btn-ghost">
-              قبلی
-            </button>
-          )}
-
-          {index < questions.length - 1 ? (
-            <button onClick={() => setIndex(i => Math.min(questions.length - 1, i + 1))} className="btn-primary">
-              بعدی
-            </button>
-          ) : (
-            <button onClick={finish} className="btn-primary" disabled={submitting}>
-              {submitting ? 'در حال ارسال...' : 'پایان آزمون'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* مودال نمایش تصاویر */}
-      {showImageModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b">
-              <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
-              <button onClick={() => setShowImageModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* نمایش تصویر */}
-            <div className="flex-1 flex flex-col items-center justify-center overflow-auto p-4">
-              {imageUrls.length > 0 ? (
-                <>
-                  <img
-                    src={imageUrls[currentImageIndex]}
-                    alt={`صفحه ${currentImageIndex + 1}`}
-                    className="max-w-full max-h-[80vh] rounded shadow object-contain"
-                    crossOrigin="anonymous"
-                  />
-                  <div className="mt-4 flex justify-center gap-4">
-                    <button
-                      onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}
-                      className="btn-ghost"
-                      disabled={currentImageIndex === 0}
-                    >
-                      قبلی
-                    </button>
-                    <span>{currentImageIndex + 1} / {imageUrls.length}</span>
-                    <button
-                      onClick={() => setCurrentImageIndex(i => Math.min(imageUrls.length - 1, i + 1))}
-                      className="btn-ghost"
-                      disabled={currentImageIndex === imageUrls.length - 1}
-                    >
-                      بعدی
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center">هیچ تصویری برای نمایش موجود نیست.</div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-2 border-t flex justify-end">
-              <button
-                onClick={() => setShowImageModal(false)}
-                className="btn-primary"
-              >
-                بستن
-              </button>
+        {/* اگر سوال فعلی imageUrl داشته باشه، تصویر اختصاصی را نمایش بده */}
+        {q && (q as any).imageUrl && (
+          <div className="flex justify-center mb-4">
+            <div className="w-full max-w-[720px]">
+              <div className="relative rounded-lg overflow-hidden bg-gray-100 border">
+                <img
+                  src={(q as any).imageUrl.startsWith('http') ? (q as any).imageUrl : `${API_BASE}${(q as any).imageUrl.startsWith('/') ? (q as any).imageUrl : '/' + (q as any).imageUrl}`}
+                  alt={`صورت سوال ${index + 1}`}
+                  className="w-full h-44 sm:h-64 object-contain cursor-zoom-in"
+                  onClick={() => openQuestionImage((q as any).imageUrl)}
+                />
+              </div>
             </div>
           </div>
+        )}
+
+        {/* نمایش کارت سوال */}
+        <AnimatePresence>
+          {q && (
+            <QuestionCard
+              key={String(q.id)}
+              q={q}
+              selected={answers[q.id] ?? null}
+              onSelect={selectAnswer}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* دکمه‌های ناوبری */}
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted">{index + 1} از {questions.length}</div>
+
+          <div className="flex gap-2">
+            {index > 0 && (
+              <button onClick={() => setIndex(i => Math.max(0, i - 1))} className="btn-ghost">
+                قبلی
+              </button>
+            )}
+
+            {index < questions.length - 1 ? (
+              <button onClick={() => setIndex(i => Math.min(questions.length - 1, i + 1))} className="btn-primary">
+                بعدی
+              </button>
+            ) : (
+              <button onClick={finish} className="btn-primary" disabled={submitting}>
+                {submitting ? 'در حال ارسال...' : 'پایان آزمون'}
+              </button>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* مودال نمایش تصاویر (مجموع صفحات قدیمی) */}
+        {showImageModal && (
+          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl h-[90vh] flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-2 border-b">
+                <h2 className="text-lg font-semibold">صورت سوالات آزمون</h2>
+                <button onClick={() => setShowImageModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* نمایش تصویر */}
+              <div className="flex-1 flex flex-col items-center justify-center overflow-auto p-4">
+                {imageUrls.length > 0 ? (
+                  <>
+                    <img
+                      src={imageUrls[currentImageIndex]}
+                      alt={`صفحه ${currentImageIndex + 1}`}
+                      className="max-w-full max-h-[80vh] rounded shadow object-contain"
+                      crossOrigin="anonymous"
+                    />
+                    <div className="mt-4 flex justify-center gap-4">
+                      <button
+                        onClick={() => setCurrentImageIndex(i => Math.max(0, i - 1))}
+                        className="btn-ghost"
+                        disabled={currentImageIndex === 0}
+                      >
+                        قبلی
+                      </button>
+                      <span>{currentImageIndex + 1} / {imageUrls.length}</span>
+                      <button
+                        onClick={() => setCurrentImageIndex(i => Math.min(imageUrls.length - 1, i + 1))}
+                        className="btn-ghost"
+                        disabled={currentImageIndex === imageUrls.length - 1}
+                      >
+                        بعدی
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center">هیچ تصویری برای نمایش موجود نیست.</div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-2 border-t flex justify-end">
+                <button
+                  onClick={() => setShowImageModal(false)}
+                  className="btn-primary"
+                >
+                  بستن
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        
+
+
+
+
+{/* مودال نمایش تصویر سوال به صورت تمام صفحه با زوم */}
+{questionImageModalOpen && questionImageSrc && (
+  <div
+    className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4"
+    onClick={() => setQuestionImageModalOpen(false)} // ← بستن با کلیک روی زمینه
+  >
+    <div
+      className="relative w-full h-full max-w-[1100px] max-h-[95vh] flex flex-col items-center"
+      onClick={(e) => e.stopPropagation()} // ← جلوگیری از بستن هنگام کلیک روی خود عکس
+    >
+      {/* دکمه‌های کنترل */}
+      <div className="absolute top-4 right-4 z-30 flex gap-2">
+        <button
+          onClick={() => setImgZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))}
+          className="btn-ghost"
+        >
+          -
+        </button>
+        <button
+          onClick={() => setImgZoom(z => +(z + 0.25).toFixed(2))}
+          className="btn-ghost"
+        >
+          +
+        </button>
+        <button
+          onClick={() => { setImgZoom(1); setQuestionImageModalOpen(false); }}
+          className="btn-ghost"
+        >
+          بستن ✕
+        </button>
+      </div>
+
+      {/* تصویر */}
+      <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+        <img
+          src={questionImageSrc}
+          alt="صورت سوال"
+          style={{ transform: `scale(${imgZoom})` }}
+          className="max-w-full max-h-full object-contain transition-transform"
+          onDoubleClick={() => setImgZoom(z => (z === 1 ? 2 : 1))}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+
       </div>
     </div>
   );

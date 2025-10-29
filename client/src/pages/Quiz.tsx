@@ -8,7 +8,6 @@ import type { Question } from '../components/QuestionCard';
 import Timer from '../components/Timer';
 import Loading from '../components/Loading';
 import { X } from 'lucide-react';
-const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 // نوع داده برای آزمون تصویری
 interface ImageQuizObject {
   mode?: 'image' | string;
@@ -40,10 +39,7 @@ export default function Quiz() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // per-question image modal/zoom state
-  const [questionImageModalOpen, setQuestionImageModalOpen] = useState(false);
-  const [questionImageSrc, setQuestionImageSrc] = useState<string | null>(null);
-  const [imgZoom, setImgZoom] = useState<number>(1);
+
 
   // آدرس پایه سرور
   const API_BASE =
@@ -143,14 +139,7 @@ export default function Quiz() {
     setAnswers(prev => ({ ...prev, [q.id]: val }));
   }
 
-  // open per-question image fullscreen modal (with zoom)
-  function openQuestionImage(src?: string | null) {
-    if (!src) return;
-    const full = src.startsWith('http') ? src : `${API_BASE}${src.startsWith('/') ? src : '/' + src}`;
-    setQuestionImageSrc(full);
-    setImgZoom(1);
-    setQuestionImageModalOpen(true);
-  }
+
 
   // پایان آزمون (وقتی کاربر خودش می‌زنه)
   async function finish() {
@@ -252,7 +241,6 @@ export default function Quiz() {
                   src={(q as any).imageUrl.startsWith('http') ? (q as any).imageUrl : `${API_BASE}${(q as any).imageUrl.startsWith('/') ? (q as any).imageUrl : '/' + (q as any).imageUrl}`}
                   alt={`صورت سوال ${index + 1}`}
                   className="w-full h-44 sm:h-64 object-contain cursor-zoom-in"
-                  onClick={() => openQuestionImage((q as any).imageUrl)}
                 />
               </div>
             </div>
@@ -351,61 +339,6 @@ export default function Quiz() {
             </div>
           </div>
         )}
-
-        
-
-
-
-
-{/* مودال نمایش تصویر سوال به صورت تمام صفحه با زوم */}
-{questionImageModalOpen && questionImageSrc && (
-  <div
-    className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4"
-    onClick={() => setQuestionImageModalOpen(false)} // ← بستن با کلیک روی زمینه
-  >
-    <div
-      className="relative w-full h-full max-w-[1100px] max-h-[95vh] flex flex-col items-center"
-      onClick={(e) => e.stopPropagation()} // ← جلوگیری از بستن هنگام کلیک روی خود عکس
-    >
-      {/* دکمه‌های کنترل */}
-      <div className="absolute top-4 right-4 z-30 flex gap-2">
-        <button
-          onClick={() => setImgZoom(z => Math.max(1, +(z - 0.25).toFixed(2)))}
-          className="btn-ghost"
-        >
-          -
-        </button>
-        <button
-          onClick={() => setImgZoom(z => +(z + 0.25).toFixed(2))}
-          className="btn-ghost"
-        >
-          +
-        </button>
-        <button
-          onClick={() => { setImgZoom(1); setQuestionImageModalOpen(false); }}
-          className="btn-ghost"
-        >
-          بستن ✕
-        </button>
-      </div>
-
-      {/* تصویر */}
-      <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
-        <img
-          src={questionImageSrc}
-          alt="صورت سوال"
-          style={{ transform: `scale(${imgZoom})` }}
-          className="max-w-full max-h-full object-contain transition-transform"
-          onDoubleClick={() => setImgZoom(z => (z === 1 ? 2 : 1))}
-        />
-      </div>
-    </div>
-  </div>
-)}
-
-
-
-
       </div>
     </div>
   );
