@@ -1,6 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import logo from '/logo.png'; // 👈 اضافه شد
 
 export default function Navbar() {
   const loc = useLocation();
@@ -14,11 +13,9 @@ export default function Navbar() {
       <div className="container-sm flex items-center justify-between px-6 py-3">
         {/* لوگو و عنوان */}
         <Link to="/" className="flex items-center gap-3">
-          <img
-            src={logo}
-            alt="لوگو"
-            className="w-10 h-10 rounded-xl object-contain bg-white/60 p-1 shadow-inner"
-          />
+          <div className="w-10 h-10 rounded-2xl bg-white/30 text-white font-extrabold flex items-center justify-center shadow-inner">
+            Q
+          </div>
           <div className="text-xl font-bold text-white drop-shadow-sm">
             هوش برتر
           </div>

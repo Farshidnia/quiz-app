@@ -12,7 +12,7 @@ export default function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const t = setTimeout(() => setShowSplash(false), 1400);
+    const t = setTimeout(() => setShowSplash(false), 6000);
     return () => clearTimeout(t);
   }, []);
 
