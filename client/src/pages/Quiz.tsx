@@ -1,5 +1,5 @@
 // client/src/pages/Quiz.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,6 +28,11 @@ export default function Quiz() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number | string, string | null>>({});
+  const answersRef = useRef(answers);
+useEffect(() => {
+  answersRef.current = answers;
+}, [answers]);
+
   const [submitting, setSubmitting] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
   const [timeUpPercent, setTimeUpPercent] = useState<string | null>(null);
@@ -146,7 +151,7 @@ export default function Quiz() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const payload = { name, phone, quizId, answers }; // include phone
+      const payload = { name, phone, quizId, answers: answersRef.current }; // include phone
       const { data } = await api.post('/api/submit', payload);
       setResult({ score: data.score, total: data.total });
     } catch (err) {
@@ -162,7 +167,7 @@ export default function Quiz() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      const payload = { name, phone, quizId, answers };
+      const payload = { name, phone, quizId, answers: answersRef.current };
       const { data } = await api.post('/api/submit', payload);
       const percent = ((data.score / Math.max(1, data.total)) * 100).toFixed(2);
       setTimeUpPercent(percent);
