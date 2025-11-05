@@ -19,7 +19,7 @@
     { "id": 15, "imageUrl": "/api/static/quizzes/q15.jpg", "correct": "ب" },
     { "id": 16, "imageUrl": "/api/static/quizzes/q16.jpg", "correct": "د" },
     { "id": 17, "imageUrl": "/api/static/quizzes/q17.jpg", "correct": "ب" },
-    { "id": 18, "imageUrl": "/api/static/quizzes/q18.jpg", "correct": "الف" },
+    { "id": 18, "imageUrl": "/api/static/quizzes/q18.jpg", "correct": "د" },
     { "id": 19, "imageUrl": "/api/static/quizzes/q19.jpg", "correct": "ج" },
     { "id": 20, "imageUrl": "/api/static/quizzes/q20.jpg", "correct": "ب" }
   ]
