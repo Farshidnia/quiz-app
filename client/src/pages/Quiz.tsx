@@ -135,7 +135,7 @@ useEffect(() => {
   }, [quizId, name, navigate, API_BASE]);
 
   // زمان کل آزمون
-  const totalTime = useMemo(() => Math.max(60, questions.length * 60), [questions]);
+  const totalTime = useMemo(() => Math.max(90, questions.length * 90), [questions]);
 
   // انتخاب جواب
   function selectAnswer(val: string) {
