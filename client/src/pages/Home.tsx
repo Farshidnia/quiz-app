@@ -10,7 +10,7 @@ type QuizItem = {
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 // ✅ تنظیمات محدودیت زمانی آزمون
-const EXAM_TIME_LIMIT_ENABLED = true; // اگر false باشد، محدودیت غیرفعال است
+const EXAM_TIME_LIMIT_ENABLED = false; // اگر false باشد، محدودیت غیرفعال است
 const EXAM_START_HOUR = 10; // ساعت شروع (به وقت تهران)
 const EXAM_END_HOUR = 23; // ساعت پایان (به وقت تهران)
 
