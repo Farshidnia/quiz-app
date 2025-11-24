@@ -168,3 +168,12 @@ html, body, #root {
     padding: 0.4rem;
   }
 }
+
+
+
+@font-face {
+  font-family: 'MRT_Khodkar';
+  src: url('/fonts/MRT_Khodkar.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}

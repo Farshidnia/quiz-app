@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-// ✅ added phone input handling (optional)
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -10,12 +9,14 @@ type QuizItem = {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
+// ✅ تنظیمات محدودیت زمانی آزمون
+const EXAM_TIME_LIMIT_ENABLED = false; // اگر false باشد، محدودیت غیرفعال است
+const EXAM_START_HOUR = 10; // ساعت شروع (به وقت تهران)
+const EXAM_END_HOUR = 23; // ساعت پایان (به وقت تهران)
+
 export default function Home() {
   const [name, setName] = useState('');
-  // ✅ added phone state
   const [phone, setPhone] = useState('');
-
-  // start with empty quizId; will be set to first available quiz after fetch
   const [quizId, setQuizId] = useState('');
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,13 +28,10 @@ export default function Home() {
         const res = await fetch(`${API_BASE}/api/quizzes`);
         const data = await res.json();
 
-        console.log('داده دریافتی از سرور:', data); // 🛠️ برای تست
-
         if (Array.isArray(data)) {
           setQuizzes(data);
           if (data.length > 0 && !quizId) setQuizId(data[0].id);
         } else {
-          console.error('API did not return an array:', data);
           setQuizzes([]);
         }
       } catch (err) {
@@ -56,13 +54,29 @@ export default function Home() {
       alert('لطفا یک آزمون را انتخاب کنید');
       return;
     }
-    // ✅ validate phone if provided (must start with 09 and be 11 digits)
     if (phone && !/^09\d{9}$/.test(phone)) {
       alert('شماره تماس نامعتبر است. فرمت درست: 09121234567');
       return;
     }
-    // ✅ include phone as optional query param
-    navigate(`/quiz?name=${encodeURIComponent(name)}&quiz=${encodeURIComponent(quizId)}&phone=${encodeURIComponent(phone)}`);
+
+    // ✅ بررسی محدودیت زمانی
+    if (EXAM_TIME_LIMIT_ENABLED) {
+      const now = new Date();
+      const tehranOffset = 3.5; // UTC+3:30
+      const tehranHour = (now.getUTCHours() + tehranOffset) % 24;
+      if (tehranHour < EXAM_START_HOUR) {
+        alert(`🕗 آزمون هنوز شروع نشده است. شروع از ساعت ${EXAM_START_HOUR}:00 به وقت تهران.`);
+        return;
+      }
+      if (tehranHour >= EXAM_END_HOUR) {
+        alert(`⏰ مهلت شرکت در آزمون به پایان رسیده است. آزمون تا ساعت ${EXAM_END_HOUR}:00 فعال بود.`);
+        return;
+      }
+    }
+
+    navigate(
+      `/quiz?name=${encodeURIComponent(name)}&quiz=${encodeURIComponent(quizId)}&phone=${encodeURIComponent(phone)}`
+    );
   }
 
   if (loading) {
@@ -120,10 +134,40 @@ export default function Home() {
         </label>
 
         <div className="flex gap-3">
-          <button onClick={start} className="btn-primary">شروع آزمون</button>
-          <button onClick={() => { setName(''); setQuizId(''); }} className="btn-ghost">پاک کردن</button>
+          <button onClick={start} className="btn-primary">
+            شروع آزمون
+          </button>
+          <button
+            onClick={() => {
+              setName('');
+              setQuizId('');
+            }}
+            className="btn-ghost"
+          >
+            پاک کردن
+          </button>
         </div>
       </div>
     </motion.div>
   );
 }
+
+
+
+
+
+
+{/* فوتر اختصاصی کافی‌نت جواد */}
+<div className="mt-6 text-center text-sm text-gray-600">
+  <div>
+    طراحی شده با <span className="text-red-500 text-base">❤️</span> توسط
+  </div>
+
+  <a
+    href="/about"
+    className="block mt-1 text-lg font-bold"
+    style={{ fontFamily: "MRT_Khodkar, sans-serif" }}
+  >
+    کافی نت و تایپ تکثیر جواد
+  </a>
+</div>
