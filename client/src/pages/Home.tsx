@@ -156,7 +156,7 @@ export default function Home() {
       </motion.div>
 
       {/* ------- فوتر اختصاصی کافی نت ------- */}
-      <div className="text-center mt-6 mb-10 text-gray-700">
+      {/* <div className="text-center mt-6 mb-10 text-gray-700">
         <Link to="/about" className="inline-block">
           <div className="text-base text-gray-700">
             طراحی شده با ❤️ توسط
@@ -168,7 +168,7 @@ export default function Home() {
             کافی نت و تایپ تکثیر جواد
           </div>
         </Link>
-      </div>
+      </div> */}
     </div>
   );
 }
